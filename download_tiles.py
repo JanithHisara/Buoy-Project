@@ -11,7 +11,6 @@ def deg2num(lat, lon, zoom):
 
 def download_tiles(lat_min, lat_max, lon_min, lon_max, zoom_levels, output_dir):
     os.makedirs(output_dir, exist_ok=True)
-
     for zoom in zoom_levels:
         x_min, y_max = deg2num(lat_min, lon_min, zoom)
         x_max, y_min = deg2num(lat_max, lon_max, zoom)

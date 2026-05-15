@@ -620,7 +620,7 @@ users_db = [
     {"id": 2, "name": "Nimal Perera", "email": "nimal@oceannav.lk", "role": "user", "status": "Active", "last_active": "5m ago", "avatar": "NP", "avatar_bg": "linear-gradient(135deg,#00e5b0,#0077ff)"},
     {"id": 3, "name": "Sunil Ranaweera", "email": "sunil@oceannav.lk", "role": "user", "status": "Offline", "last_active": "2h ago", "avatar": "SR", "avatar_bg": "linear-gradient(135deg,#ff6b6b,#ff4757)"},
     {"id": 4, "name": "Kumari", "email": "kumari@oceannav.lk", "role": "user", "status": "Away", "last_active": "45m ago", "avatar": "KF", "avatar_bg": "linear-gradient(135deg,#ffb830,#ff6b6b)"}
-]
+] 
 
 # Mock devices database
 devices_db = [
