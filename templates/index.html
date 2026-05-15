@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OceanNav — Login</title>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div id="auth-screen">
+        <div class="auth-bg-waves">
+            <div class="wave wave1"></div>
+            <div class="wave wave2"></div>
+            <div class="wave wave3"></div>
+        </div>
+        <div class="auth-stars"></div>
+        <div class="auth-box">
+            <div class="auth-logo">
+                <div class="auth-logo-icon">🌊</div>
+                <h1>Ocean<span>Nav</span></h1>
+            </div>
+            <div class="auth-tagline">Buoy Navigation & Monitoring System</div>
+            <div class="auth-tabs">
+                <button class="auth-tab active" onclick="switchAuthTab('admin')">
+                    Admin <span class="auth-badge badge-admin">⚡</span>
+                </button>
+                <button class="auth-tab" onclick="switchAuthTab('user')">
+                    User <span class="auth-badge badge-user">◎</span>
+                </button>
+            </div>
+            <div class="auth-form">
+                <div id="auth-name-row">
+                    <label>Full Name</label>
+                    <input type="text" id="auth-name" placeholder="Enter your name">
+                </div>
+                <label>Email Address</label>
+                <input type="email" id="auth-email" placeholder="you@example.com">
+                <label>Password</label>
+                <input type="password" id="auth-password" placeholder="••••••••">
+                <div class="auth-role-hint" id="auth-hint">Admin access — full system control</div>
+                <button class="auth-btn" onclick="handleLogin()">Sign In to OceanNav</button>
+                <div class="auth-error" id="auth-error"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script>
+        let currentRole = 'admin';
+        
+        function switchAuthTab(role) {
+            currentRole = role;
+            document.querySelectorAll('.auth-tab').forEach((tab, i) => {
+                tab.classList.toggle('active', (role === 'admin' && i === 0) || (role === 'user' && i === 1));
+            });
+            const nameRow = document.getElementById('auth-name-row');
+            const hint = document.getElementById('auth-hint');
+            if (role === 'admin') {
+                nameRow.style.display = 'block';
+                hint.textContent = 'Admin access — full system control';
+            } else {
+                nameRow.style.display = 'none';
+                hint.textContent = 'User access — view & monitor only';
+            }
+        }
+        
+        async function handleLogin() {
+            const name = document.getElementById('auth-name').value.trim();
+            const email = document.getElementById('auth-email').value.trim();
+            const password = document.getElementById('auth-password').value;
+            const errorDiv = document.getElementById('auth-error');
+            
+            if (!email || !password) {
+                errorDiv.textContent = 'Please fill in all fields.';
+                errorDiv.style.display = 'block';
+                return;
+            }
+            if (currentRole === 'admin' && !name) {
+                errorDiv.textContent = 'Please enter your name.';
+                errorDiv.style.display = 'block';
+                return;
+            }
+            
+            try {
+                const response = await fetch('/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, email, password: password, role: currentRole })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    window.location.href = '/dashboard';
+                } else {
+                    errorDiv.textContent = data.error || 'Login failed';
+                    errorDiv.style.display = 'block';
+                }
+            } catch (error) {
+                errorDiv.textContent = 'Connection error. Please try again.';
+                errorDiv.style.display = 'block';
+            }
+        }
+    </script>
+</body>
+</html>

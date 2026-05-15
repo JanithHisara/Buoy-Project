@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OceanNav — Users</title>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div id="app">
+        {% include 'sidebar.html' %}
+        
+        <div id="main">
+            <div class="topbar">
+                <div class="topbar-title" id="topbar-title">
+                    Users <span class="topbar-subtitle">/ Access management</span>
+                </div>
+                <div class="status-pill">
+                    <div class="status-dot"></div>
+                    System Online
+                </div>
+                <button class="theme-toggle" onclick="toggleTheme()">
+                    <span id="theme-label">Dark</span>
+                    <div class="toggle-switch"></div>
+                </button>
+            </div>
+            
+            <div id="content-area">
+                <div class="section-header" style="margin-bottom:20px">
+                    <div class="section-title">System Users</div>
+                    {% if user.role == 'admin' %}
+                    <button class="add-btn" onclick="showNotif('Invite user feature coming soon')">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="12" y1="5" x2="12" y2="19"/>
+                            <line x1="5" y1="12" x2="19" y2="12"/>
+                        </svg>
+                        Invite User
+                    </button>
+                    {% endif %}
+                </div>
+                <div class="users-table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>User</th>
+                                <th>Email</th>
+                                <th>Role</th>
+                                <th>Status</th>
+                                <th>Last Active</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user_item in users %}
+                            <tr>
+                                <td>
+                                    <div class="td-name">
+                                        <div class="mini-avatar" style="background: {{ user_item.avatar_bg }}">{{ user_item.avatar }}</div>
+                                        {{ user_item.name }}
+                                    </div>
+                                </td>
+                                <td>{{ user_item.email }}</td>
+                                <td>
+                                    <span class="role-badge role-{{ user_item.role }}">{{ user_item.role|capitalize }}</span>
+                                </td>
+                                <td>
+                                    <span class="device-status {% if user_item.status == 'Active' %}online{% elif user_item.status == 'Offline' %}offline{% else %}warning{% endif %}" style="font-size:11px">
+                                        {{ user_item.status }}
+                                    </span>
+                                </td>
+                                <td>{{ user_item.last_active }}</td>
+                                <td>
+                                    <span class="action-icon" onclick="showNotif('Edit user: {{ user_item.name }}')">✎</span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="notif" id="notif">
+        <span>💡</span>
+        <span id="notif-msg"></span>
+    </div>
+    
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

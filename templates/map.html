@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OceanNav — Live Map</title>
+
+    <!-- Local CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='leaflet/leaflet.css') }}">
+</head>
+
+<body>
+<div id="app">
+    {% include 'sidebar.html' %}
+    
+    <div id="main">
+        <div class="topbar">
+            <div class="topbar-title">
+                Live Map <span class="topbar-subtitle">/ Real-time tracking</span>
+            </div>
+
+            <div class="status-pill">
+                <div class="status-dot"></div>
+                System Online
+            </div>
+
+            <button class="theme-toggle" onclick="toggleTheme()">
+                <span id="theme-label">Dark</span>
+                <div class="toggle-switch"></div>
+            </button>
+        </div>
+
+        <div id="content-area">
+
+            <!-- Stats -->
+            <div class="stats-row">
+                <div class="stat-card">
+                    <div class="stat-label">Active Buoys</div>
+                    <div class="stat-value accent">14</div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-label">GPS Points</div>
+                    <div class="stat-value success" id="gps-count">0</div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-label">Alerts</div>
+                    <div class="stat-value warning">3</div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-label">Coverage</div>
+                    <div class="stat-value">84%</div>
+                </div>
+            </div>
+
+            <!-- MAP -->
+            <div class="map-wrapper">
+                <div class="map-header">
+                    <h3>🗺 Navigation Chart — Colombo Waters</h3>
+
+                    <div class="map-controls">
+                        <button class="map-btn refresh" onclick="scanGPS()" id="scanBtn">Scan GPS</button>
+                    </div>
+                </div>
+
+                <div id="map" style="height:420px;"></div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<div class="notif" id="notif">
+    <span>💡</span>
+    <span id="notif-msg"></span>
+</div>
+
+<!-- Local Leaflet JS -->
+<script src="{{ url_for('static', filename='leaflet/leaflet.js') }}"></script>
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+
+<script>
+let map, markers = [], path, gpsCount = 0;
+let isScanning = false;
+let checkInterval = null;
+
+function initMap() {
+    if (map) return;
+
+    map = L.map('map').setView([6.9271, 79.8612], 12);
+
+    // Offline tile
+    L.tileLayer('/static/tiles/sri_lanka/{z}/{x}/{y}.png', {
+        minZoom: 8,
+        maxZoom: 11,
+        tileSize: 256,
+        noWrap: true,
+        attribution: "OceanNav Offline Map",
+        errorTileUrl: '/static/tiles/blank.png'
+    }).addTo(map);
+
+    path = L.polyline([], {
+        color: '#00d4ff',
+        weight: 3,
+        opacity: 0.8
+    }).addTo(map);
+}
+
+async function scanGPS() {
+    if (isScanning) {
+        showNotif("Scan already in progress...");
+        return;
+    }
+    
+    // Check if connected to ESP32
+    const statusRes = await fetch('/connection-status');
+    const status = await statusRes.json();
+    
+    if (!status.connected) {
+        showNotif("Please connect to ESP32 first!");
+        return;
+    }
+    
+    isScanning = true;
+    const scanBtn = document.getElementById('scanBtn');
+    scanBtn.disabled = true;
+    scanBtn.textContent = 'Scanning...';
+    
+    // Clear old data
+    gpsCount = 0;
+    document.getElementById('gps-count').textContent = '0';
+    markers.forEach(m => map.removeLayer(m));
+    markers = [];
+    path.setLatLngs([]);
+    
+    showNotif("Sending GPS command to ESP32...");
+    
+    try {
+        // Send scan command (ONLY ONCE)
+        const res = await fetch('/scan', { method: 'POST' });
+        const data = await res.json();
+        
+        if (data.status === 'sent') {
+            showNotif("GPS command sent, waiting for response...");
+            
+            // Check for results after 1 second
+            setTimeout(() => {
+                checkForGPSData();
+            }, 1500);
+            
+            // Timeout after 10 seconds
+            setTimeout(() => {
+                if (isScanning) {
+                    isScanning = false;
+                    scanBtn.disabled = false;
+                    scanBtn.textContent = 'Scan GPS';
+                    showNotif("Scan timeout - no data received");
+                }
+                if (checkInterval) {
+                    clearInterval(checkInterval);
+                    checkInterval = null;
+                }
+            }, 10000);
+        } else {
+            showNotif("Error: " + (data.error || "Unknown error"));
+            isScanning = false;
+            scanBtn.disabled = false;
+            scanBtn.textContent = 'Scan GPS';
+        }
+    } catch (e) {
+        console.error("Scan error:", e);
+        showNotif("Error scanning GPS");
+        isScanning = false;
+        scanBtn.disabled = false;
+        scanBtn.textContent = 'Scan GPS';
+    }
+}
+
+function checkForGPSData() {
+    let attempts = 0;
+    
+    checkInterval = setInterval(async () => {
+        attempts++;
+        
+        try {
+            const res = await fetch('/gps');
+            const points = await res.json();
+            
+            // Check if we have points
+            if (points && points.length > 0) {
+                updateMapWithPoints(points);
+                showNotif(`Received ${points.length} GPS points!`);
+                
+                // Stop checking
+                clearInterval(checkInterval);
+                checkInterval = null;
+                isScanning = false;
+                document.getElementById('scanBtn').disabled = false;
+                document.getElementById('scanBtn').textContent = 'Scan GPS';
+            } else if (attempts > 10) {
+                // Stop after 10 attempts (10 seconds)
+                clearInterval(checkInterval);
+                checkInterval = null;
+                isScanning = false;
+                document.getElementById('scanBtn').disabled = false;
+                document.getElementById('scanBtn').textContent = 'Scan GPS';
+                showNotif("No GPS data received. Try again.");
+            }
+        } catch (e) {
+            console.log("Error checking GPS:", e);
+        }
+    }, 1000); // Check every 1 second
+}
+
+function updateMapWithPoints(points) {
+    console.log("Updating map with", points.length, "points");
+    
+    const buoyIcon = L.divIcon({
+        html: '<div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#00d4ff,#0077ff);display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:bold;">●</div>',
+        className: '',
+        iconSize: [24, 24]
+    });
+    
+    // Add new markers and build path
+    const latLngs = [];
+    points.forEach((p, index) => {
+        const marker = L.marker([p.lat, p.lon], { icon: buoyIcon }).addTo(map);
+        
+        marker.bindPopup(`
+            <b>GPS Point ${index + 1}</b><br>
+            Latitude: ${p.lat.toFixed(6)}<br>
+            Longitude: ${p.lon.toFixed(6)}
+        `);
+        
+        markers.push(marker);
+        latLngs.push([p.lat, p.lon]);
+        
+        // Add to path
+        path.addLatLng([p.lat, p.lon]);
+    });
+    
+    // Update GPS count
+    gpsCount = points.length;
+    document.getElementById('gps-count').textContent = gpsCount;
+    
+    // Fit map to show all points
+    if (latLngs.length > 0) {
+        const bounds = L.latLngBounds(latLngs);
+        map.fitBounds(bounds, { padding: [50, 50] });
+    }
+}
+
+async function connectToDevice() {
+    try {
+        const res = await fetch('/ports');
+        const ports = await res.json();
+        
+        if (ports.length > 0) {
+            // Try to connect to first available port
+            const port = ports[0];
+            const connectRes = await fetch('/connect', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ port: port, baudrate: 115200 })
+            });
+            
+            const data = await connectRes.json();
+            if (data.status === 'connected') {
+                showNotif("✓ Connected to " + port);
+            } else {
+                showNotif("Connection failed: " + (data.message || "Unknown error"));
+            }
+        } else {
+            showNotif("No COM ports found. Check USB connection.");
+        }
+    } catch (e) {
+        console.error("Connection error:", e);
+        showNotif("Error connecting to device");
+    }
+}
+
+function showNotif(msg) {
+    const notif = document.getElementById('notif');
+    const notifMsg = document.getElementById('notif-msg');
+    notifMsg.textContent = msg;
+    notif.classList.add('show');
+    
+    setTimeout(() => {
+        notif.classList.remove('show');
+    }, 3000);
+}
+
+// Make functions global
+window.scanGPS = scanGPS;
+window.connectToDevice = connectToDevice;
+window.initMap = initMap;
+window.showNotif = showNotif;
+
+// Start when page loads
+window.onload = initMap;
+</script>
+
+</body>
+</html>
