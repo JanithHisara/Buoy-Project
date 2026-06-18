@@ -753,7 +753,18 @@ function hideGlobalLoading() {
 ===================================================== */
 
 let connectionType = 'serial';
-let devices = JSON.parse(localStorage.getItem('devices')) || [];
+let devices = [];
+
+async function loadDevices() {
+    try {
+        const response = await fetch('/api/devices');
+        devices = await response.json();
+        renderDevices();
+    } catch (error) {
+        console.error('Failed to load devices:', error);
+        showNotif('Error loading devices from database', true);
+    }
+}
 
 /* =====================================================
    LOAD PORTS
@@ -908,16 +919,30 @@ async function handleConnectAndSave() {
 async function finalizeSaveDevice() {
     if(!pendingGpsData) return;
     const { name, deviceId, lat, lon } = pendingGpsData;
-    const deviceData = { name: name, id: deviceId, lat: lat, lon: lon, active: true };
-    devices.push(deviceData);
-    localStorage.setItem('devices', JSON.stringify(devices));
-    renderDevices();
-    closeDevicePanel();
-    showNotif(`Device "${name}" added successfully with GPS location`);
-    setTimeout(() => {
-        const wrapper = document.querySelector('.devices-wrapper');
-        if(wrapper) wrapper.scrollTo({ top: wrapper.scrollHeight, behavior: 'smooth' });
-    }, 100);
+    showGlobalLoading('Saving device to database...');
+    try {
+        const response = await fetch('/api/devices', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: deviceId, name: name, lat: lat, lon: lon })
+        });
+        const data = await response.json();
+        hideGlobalLoading();
+        if (data.success) {
+            await loadDevices();
+            closeDevicePanel();
+            showNotif(`Device "${name}" added successfully to database`);
+            setTimeout(() => {
+                const wrapper = document.querySelector('.devices-wrapper');
+                if(wrapper) wrapper.scrollTo({ top: wrapper.scrollHeight, behavior: 'smooth' });
+            }, 100);
+        } else {
+            showNotif(data.error || 'Failed to save device', true);
+        }
+    } catch (error) {
+        hideGlobalLoading();
+        showNotif('Failed to save device to database', true);
+    }
     resetGpsPendingState();
 }
 
@@ -929,13 +954,14 @@ function renderDevices(){
         return;
     }
     devices.forEach((device,index)=>{
+        const isDeviceActive = device.active === 1 || device.active === true;
         grid.innerHTML += `
         <div class="device-card">
             <div class="device-top">
-                <div class="device-icon ${device.active ? 'online' : 'offline'}">📡</div>
-                <span class="device-status ${device.active ? 'online' : 'offline'}">${device.active ? 'Active' : 'Inactive'}</span>
+                <div class="device-icon ${isDeviceActive ? 'online' : 'offline'}">📡</div>
+                <span class="device-status ${isDeviceActive ? 'online' : 'offline'}">${isDeviceActive ? 'Active' : 'Inactive'}</span>
             </div>
-            <div class="device-name">${escapeHtml(device.name)}</div>
+            <div class="device-name">${escapeHtml(device.name || device.id)}</div>
             <div class="device-id">Device ID : ${escapeHtml(device.id)}</div>
             <div class="device-meta">
                 <div class="device-meta-item"><div class="device-meta-label">Latitude</div><div class="device-meta-val">${device.lat}</div></div>
@@ -943,7 +969,7 @@ function renderDevices(){
             </div>
             <div class="device-actions">
                 <button class="device-action-btn" onclick="openDirection(${device.lat},${device.lon})"><i class="fa-solid fa-location-arrow"></i></button>
-                <button class="device-action-btn deactivate" onclick="toggleDevice(${index})">${device.active ? '<i class="fa-solid fa-power-off"></i>' : '<i class="fa-solid fa-play"></i>'}</button>
+                <button class="device-action-btn deactivate" onclick="toggleDevice(${index})">${isDeviceActive ? '<i class="fa-solid fa-power-off"></i>' : '<i class="fa-solid fa-play"></i>'}</button>
                 <button class="device-action-btn" onclick="deleteDevice(${index})"><i class="fa-solid fa-trash"></i></button>
             </div>
         </div>`;
@@ -952,19 +978,41 @@ function renderDevices(){
 
 function escapeHtml(str) { if(!str) return ''; return str.replace(/[&<>]/g, function(m){ if(m==='&') return '&amp;'; if(m==='<') return '&lt;'; if(m==='>') return '&gt;'; return m;}); }
 
-function toggleDevice(index){
-    devices[index].active = !devices[index].active;
-    localStorage.setItem('devices', JSON.stringify(devices));
-    renderDevices();
-    showNotif(devices[index].active ? 'Device Activated' : 'Device Deactivated');
+async function toggleDevice(index){
+    const device = devices[index];
+    const isDeviceActive = device.active === 1 || device.active === true;
+    const newActiveState = !isDeviceActive;
+    showGlobalLoading(newActiveState ? 'Activating device...' : 'Deactivating device...');
+    try {
+        const response = await fetch(`/api/devices/${device.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ active: newActiveState })
+        });
+        hideGlobalLoading();
+        await loadDevices();
+        showNotif(newActiveState ? 'Device Activated' : 'Device Deactivated');
+    } catch (error) {
+        hideGlobalLoading();
+        showNotif('Failed to update device status', true);
+    }
 }
 
-function deleteDevice(index){
-    if(!confirm('Delete this device?')) return;
-    devices.splice(index,1);
-    localStorage.setItem('devices', JSON.stringify(devices));
-    renderDevices();
-    showNotif('Device deleted');
+async function deleteDevice(index){
+    const device = devices[index];
+    if(!confirm(`Delete device "${device.name || device.id}"?`)) return;
+    showGlobalLoading('Deleting device...');
+    try {
+        const response = await fetch(`/api/devices/${device.id}`, {
+            method: 'DELETE'
+        });
+        hideGlobalLoading();
+        await loadDevices();
+        showNotif('Device deleted successfully');
+    } catch (error) {
+        hideGlobalLoading();
+        showNotif('Failed to delete device', true);
+    }
 }
 
 function openDirection(lat,lon){ window.open(`https://www.google.com/maps?q=${lat},${lon}`, '_blank'); }
@@ -1003,7 +1051,7 @@ function toggleTheme() {
 window.onload = ()=>{
     loadPorts();
     setInterval(loadPorts,5000);
-    renderDevices();
+    loadDevices();
     const root = document.documentElement;
     root.style.setProperty('--bg-deep', '#0a0c14');
     root.style.setProperty('--bg-card', '#0f111a');

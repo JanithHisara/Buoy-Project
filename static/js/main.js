@@ -7,6 +7,10 @@ function toggleTheme() {
     const themeLabel = document.getElementById('theme-label');
     if (themeLabel) themeLabel.textContent = currentTheme === 'dark' ? 'Dark' : 'Light';
     if (window.map) setTimeout(() => map.invalidateSize(), 50);
+    
+    // Dispatch a custom event for other components to react to theme change
+    const event = new CustomEvent('themechanged', { detail: { theme: currentTheme } });
+    document.dispatchEvent(event);
 }
 
 // Sidebar toggle

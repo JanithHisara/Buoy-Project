@@ -5,7 +5,487 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OceanNav — Users</title>
     <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"/>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        /* ═══════════════════════════════════════
+           REGISTER OPERATOR PANEL — PREMIUM STYLES
+        ═══════════════════════════════════════ */
+
+        /* Panel container — glassmorphism drawer */
+        #invite-panel {
+            position: fixed;
+            top: 0;
+            right: -460px;
+            width: 440px;
+            max-width: 100vw;
+            height: 100%;
+            z-index: 10002;
+            background: linear-gradient(165deg, rgba(13,21,37,0.98) 0%, rgba(10,15,30,0.99) 100%);
+            border-left: 1px solid rgba(0,212,255,0.18);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            box-shadow: -20px 0 60px rgba(0,0,0,0.6), -4px 0 20px rgba(0,212,255,0.06);
+            transition: right 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+            overflow-y: auto;
+            overflow-x: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #invite-panel.open {
+            right: 0;
+        }
+
+        /* Scrollbar for panel */
+        #invite-panel::-webkit-scrollbar { width: 4px; }
+        #invite-panel::-webkit-scrollbar-track { background: transparent; }
+        #invite-panel::-webkit-scrollbar-thumb { background: rgba(0,212,255,0.2); border-radius: 4px; }
+
+        /* Overlay */
+        #invite-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.55);
+            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
+            z-index: 10001;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.4s ease, visibility 0.4s ease;
+        }
+
+        #invite-overlay.open {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        /* Panel top accent bar */
+        .invite-accent-bar {
+            height: 3px;
+            background: linear-gradient(90deg, #00d4ff, #0077ff, #7b2cbf);
+            flex-shrink: 0;
+        }
+
+        /* Panel header */
+        .invite-panel-header {
+            padding: 28px 28px 20px;
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 16px;
+            flex-shrink: 0;
+        }
+
+        .invite-header-left {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .invite-header-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, rgba(0,212,255,0.2), rgba(0,119,255,0.15));
+            border: 1px solid rgba(0,212,255,0.25);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            color: var(--accent);
+            margin-bottom: 10px;
+            box-shadow: 0 4px 14px rgba(0,212,255,0.15);
+        }
+
+        .invite-title {
+            font-family: 'Syne', sans-serif;
+            font-size: 20px;
+            font-weight: 800;
+            color: var(--text-primary);
+            letter-spacing: -0.3px;
+            line-height: 1.2;
+        }
+
+        .invite-subtitle {
+            font-size: 12px;
+            color: var(--text-muted);
+            letter-spacing: 0.3px;
+        }
+
+        /* Close button */
+        .invite-close-btn {
+            width: 36px;
+            height: 36px;
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 10px;
+            background: rgba(255,255,255,0.04);
+            color: var(--text-muted);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            transition: all 0.25s;
+            flex-shrink: 0;
+            margin-top: 4px;
+        }
+
+        .invite-close-btn:hover {
+            background: rgba(255,71,87,0.12);
+            border-color: rgba(255,71,87,0.35);
+            color: #ff4757;
+            transform: rotate(90deg);
+        }
+
+        /* Divider */
+        .invite-divider {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(0,212,255,0.1), transparent);
+            margin: 0 28px;
+        }
+
+        /* Panel body */
+        .invite-body {
+            padding: 24px 28px 32px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            flex: 1;
+        }
+
+        /* Section label */
+        .invite-section-label {
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 1.4px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin-bottom: -8px;
+        }
+
+        /* Field group */
+        .invite-field {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .invite-field label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            letter-spacing: 0.3px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .invite-field label .label-icon {
+            font-size: 10px;
+            opacity: 0.6;
+        }
+
+        /* Input wrapper */
+        .invite-input-wrap {
+            position: relative;
+        }
+
+        .invite-input-wrap .field-icon {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            font-size: 13px;
+            pointer-events: none;
+            transition: color 0.3s, transform 0.3s;
+            z-index: 1;
+        }
+
+        .invite-input-wrap input,
+        .invite-input-wrap select {
+            width: 100%;
+            box-sizing: border-box;
+            height: 50px;
+            padding: 0 44px 0 44px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 12px;
+            color: var(--text-primary);
+            font-family: 'DM Sans', sans-serif;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.3s, box-shadow 0.3s, background 0.3s;
+        }
+
+        .invite-input-wrap input::placeholder {
+            color: var(--text-muted);
+            opacity: 0.7;
+        }
+
+        .invite-input-wrap input:hover,
+        .invite-input-wrap select:hover {
+            border-color: rgba(0,212,255,0.2);
+            background: rgba(255,255,255,0.05);
+        }
+
+        .invite-input-wrap input:focus,
+        .invite-input-wrap select:focus {
+            border-color: rgba(0,212,255,0.5);
+            box-shadow: 0 0 0 3px rgba(0,212,255,0.1), inset 0 1px 0 rgba(0,212,255,0.05);
+            background: rgba(0,212,255,0.04);
+        }
+
+        .invite-input-wrap input:focus ~ .field-icon,
+        .invite-input-wrap select:focus ~ .field-icon {
+            color: var(--accent);
+            transform: translateY(-50%) scale(1.1);
+        }
+
+        /* Password toggle button */
+        .pw-toggle {
+            position: absolute;
+            right: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 13px;
+            padding: 4px;
+            transition: color 0.2s;
+            z-index: 1;
+        }
+
+        .pw-toggle:hover { color: var(--accent); }
+
+        /* Select custom styling */
+        .invite-input-wrap select {
+            appearance: none;
+            -webkit-appearance: none;
+            cursor: pointer;
+            padding-right: 40px;
+        }
+
+        .select-arrow {
+            position: absolute;
+            right: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            pointer-events: none;
+            color: var(--text-muted);
+            font-size: 11px;
+            transition: color 0.3s;
+        }
+
+        .invite-input-wrap select:focus ~ .select-arrow {
+            color: var(--accent);
+        }
+
+        /* Role description card */
+        #role-desc-card {
+            border-radius: 12px;
+            padding: 14px 16px;
+            border: 1px solid rgba(255,255,255,0.07);
+            background: rgba(255,255,255,0.03);
+            border-left: 3px solid var(--accent);
+            font-size: 12.5px;
+            line-height: 1.6;
+            color: var(--text-secondary);
+            transition: border-left-color 0.4s ease, background 0.4s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #role-desc-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            transition: opacity 0.4s ease;
+            border-radius: inherit;
+        }
+
+        #role-desc-card.role-user   { border-left-color: #00d4ff; background: rgba(0,212,255,0.04); }
+        #role-desc-card.role-admin  { border-left-color: #2ed15e; background: rgba(46,209,94,0.04); }
+        #role-desc-card.role-super  { border-left-color: #9d4edd; background: rgba(157,78,221,0.04); }
+
+        .role-desc-title {
+            font-weight: 700;
+            font-size: 12px;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-family: 'Syne', sans-serif;
+        }
+
+        .role-desc-text { opacity: 0.85; }
+
+        /* Role pills row */
+        .role-pills {
+            display: flex;
+            gap: 6px;
+        }
+
+        .role-pill {
+            flex: 1;
+            padding: 8px 4px;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.07);
+            background: rgba(255,255,255,0.03);
+            text-align: center;
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--text-muted);
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.25s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .role-pill i { font-size: 14px; }
+
+        .role-pill:hover {
+            border-color: rgba(0,212,255,0.25);
+            color: var(--text-secondary);
+        }
+
+        .role-pill.active-user {
+            background: rgba(0,212,255,0.1);
+            border-color: rgba(0,212,255,0.35);
+            color: #00d4ff;
+            box-shadow: 0 0 12px rgba(0,212,255,0.12);
+        }
+
+        .role-pill.active-admin {
+            background: rgba(46,209,94,0.1);
+            border-color: rgba(46,209,94,0.35);
+            color: #2ed15e;
+            box-shadow: 0 0 12px rgba(46,209,94,0.12);
+        }
+
+        .role-pill.active-super {
+            background: rgba(157,78,221,0.1);
+            border-color: rgba(157,78,221,0.35);
+            color: #9d4edd;
+            box-shadow: 0 0 12px rgba(157,78,221,0.12);
+        }
+
+        /* Save button */
+        #invite-save-btn {
+            width: 100%;
+            height: 52px;
+            border: none;
+            border-radius: 14px;
+            background: linear-gradient(135deg, #00d4ff 0%, #0077ff 60%, #3a0ca3 100%);
+            color: #ffffff;
+            font-family: 'Syne', sans-serif;
+            font-size: 15px;
+            font-weight: 700;
+            letter-spacing: 0.4px;
+            cursor: pointer;
+            box-shadow: 0 6px 24px rgba(0,119,255,0.35), 0 2px 8px rgba(0,212,255,0.2);
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #invite-save-btn::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 60%);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        #invite-save-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 32px rgba(0,119,255,0.45), 0 4px 12px rgba(0,212,255,0.3);
+        }
+
+        #invite-save-btn:hover::before { opacity: 1; }
+
+        #invite-save-btn:active {
+            transform: translateY(0);
+            box-shadow: 0 4px 16px rgba(0,119,255,0.3);
+        }
+
+        #invite-save-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Spinner inside btn */
+        .btn-spinner {
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            display: none;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        #invite-save-btn.loading .btn-spinner { display: block; }
+        #invite-save-btn.loading .btn-label { opacity: 0.7; }
+
+        /* Footer info */
+        .invite-footer-note {
+            font-size: 11px;
+            color: var(--text-muted);
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        /* ═══════════════════════════
+           ROLE BADGE — SUPER ADMIN
+        ═══════════════════════════ */
+        .role-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 10px;
+            border-radius: 30px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .role-badge.role-super_admin {
+            background: rgba(157, 78, 221, 0.15);
+            color: #b57bee;
+            border: 1px solid rgba(157, 78, 221, 0.35);
+        }
+
+        .role-badge.role-admin {
+            background: rgba(255,184,48,0.12);
+            color: #ffb830;
+            border: 1px solid rgba(255,184,48,0.3);
+        }
+
+        .role-badge.role-user {
+            background: rgba(0,229,176,0.1);
+            color: #00e5b0;
+            border: 1px solid rgba(0,229,176,0.25);
+        }
+    </style>
 </head>
 <body>
     <div id="app">
@@ -24,20 +504,21 @@
                     <div class="toggle-switch"></div>
                 </button>
             </div>
-            
+
             <div id="content-area">
                 <div class="section-header" style="margin-bottom:20px">
                     <div class="section-title">System Users</div>
-                    {% if user.role == 'admin' %}
-                    <button class="add-btn" onclick="showNotif('Invite user feature coming soon')">
+                    {% if user.role == 'super_admin' %}
+                    <button class="add-btn" id="open-register-btn" onclick="openInviteModal()">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <line x1="12" y1="5" x2="12" y2="19"/>
                             <line x1="5" y1="12" x2="19" y2="12"/>
                         </svg>
-                        Invite User
+                        Register Operator
                     </button>
                     {% endif %}
                 </div>
+
                 <div class="users-table-wrap">
                     <table>
                         <thead>
@@ -61,7 +542,15 @@
                                 </td>
                                 <td>{{ user_item.email }}</td>
                                 <td>
-                                    <span class="role-badge role-{{ user_item.role }}">{{ user_item.role|capitalize }}</span>
+                                    {% if user.role == 'super_admin' and user_item.email != user.email %}
+                                    <select class="role-select" onchange="updateUserRole('{{ user_item.email }}', this.value)" style="background: var(--bg-secondary); color: var(--text-primary); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font-family: inherit; font-size: 13px; outline: none; cursor: pointer;">
+                                        <option value="user" {% if user_item.role == 'user' %}selected{% endif %}>User</option>
+                                        <option value="admin" {% if user_item.role == 'admin' %}selected{% endif %}>Admin</option>
+                                        <option value="super_admin" {% if user_item.role == 'super_admin' %}selected{% endif %}>Super Admin</option>
+                                    </select>
+                                    {% else %}
+                                    <span class="role-badge role-{{ user_item.role }}">{{ user_item.role|replace('_', ' ')|title }}</span>
+                                    {% endif %}
                                 </td>
                                 <td>
                                     <span class="device-status {% if user_item.status == 'Active' %}online{% elif user_item.status == 'Offline' %}offline{% else %}warning{% endif %}" style="font-size:11px">
@@ -70,7 +559,11 @@
                                 </td>
                                 <td>{{ user_item.last_active }}</td>
                                 <td>
-                                    <span class="action-icon" onclick="showNotif('Edit user: {{ user_item.name }}')">✎</span>
+                                    {% if user.role == 'super_admin' and user_item.email != user.email %}
+                                    <button onclick="terminateUser('{{ user_item.email }}')" title="Terminate Account" style="background: rgba(255,71,87,0.1); border: 1px solid rgba(255,71,87,0.25); color: #ff4757; border-radius: 8px; padding: 6px 10px; cursor: pointer; font-size: 12px; transition: all 0.2s;" onmouseover="this.style.background='rgba(255,71,87,0.2)'" onmouseout="this.style.background='rgba(255,71,87,0.1)'">
+                                        <i class="fa-solid fa-trash-can"></i>
+                                    </button>
+                                    {% endif %}
                                 </td>
                             </tr>
                             {% endfor %}
@@ -80,12 +573,334 @@
             </div>
         </div>
     </div>
-    
+
+    <!-- ═══════════════════════════════════════════════
+         REGISTER OPERATOR PANEL (Super Admin Only)
+    ═══════════════════════════════════════════════ -->
+    {% if user.role == 'super_admin' %}
+    <div id="invite-overlay" onclick="closeInviteModal()"></div>
+
+    <div id="invite-panel">
+        <!-- Top accent gradient bar -->
+        <div class="invite-accent-bar"></div>
+
+        <!-- Header -->
+        <div class="invite-panel-header">
+            <div class="invite-header-left">
+                <div class="invite-header-icon">
+                    <i class="fa-solid fa-user-plus"></i>
+                </div>
+                <div class="invite-title">Register Operator</div>
+                <div class="invite-subtitle">Add a new operator to the OceanNav system</div>
+            </div>
+            <button class="invite-close-btn" onclick="closeInviteModal()" title="Close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <div class="invite-divider"></div>
+
+        <!-- Body -->
+        <div class="invite-body">
+
+            <!-- Role Selector Pills -->
+            <div class="invite-field">
+                <label><i class="fa-solid fa-user-shield label-icon"></i> System Role</label>
+                <div class="role-pills">
+                    <button class="role-pill active-user" id="pill-user" onclick="selectRole('user')">
+                        <i class="fa-solid fa-eye"></i>
+                        User
+                    </button>
+                    <button class="role-pill" id="pill-admin" onclick="selectRole('admin')">
+                        <i class="fa-solid fa-shield-halved"></i>
+                        Admin
+                    </button>
+                    <button class="role-pill" id="pill-super" onclick="selectRole('super_admin')">
+                        <i class="fa-solid fa-crown"></i>
+                        Super Admin
+                    </button>
+                </div>
+                <!-- Hidden select that we actually submit -->
+                <select id="invite-role" style="display:none">
+                    <option value="user">user</option>
+                    <option value="admin">admin</option>
+                    <option value="super_admin">super_admin</option>
+                </select>
+            </div>
+
+            <!-- Role description card -->
+            <div id="role-desc-card" class="role-user">
+                <div class="role-desc-title" id="role-desc-title">
+                    <i class="fa-solid fa-circle-info" style="color:#00d4ff"></i>
+                    <span style="color:#00d4ff">User Access</span>
+                </div>
+                <div class="role-desc-text" id="role-desc-text">
+                    Standard operator account. Can monitor buoys, view the live map, and update system settings. <strong>Cannot manage other accounts.</strong>
+                </div>
+            </div>
+
+            <div class="invite-divider" style="margin:0;"></div>
+
+            <!-- Full Name -->
+            <div class="invite-field">
+                <label><i class="fa-solid fa-id-card label-icon"></i> Full Name</label>
+                <div class="invite-input-wrap">
+                    <input type="text" id="invite-name" placeholder="e.g. Nimal Perera" autocomplete="off">
+                    <i class="fa-solid fa-user field-icon"></i>
+                </div>
+            </div>
+
+            <!-- Email -->
+            <div class="invite-field">
+                <label><i class="fa-solid fa-envelope label-icon"></i> Email Address</label>
+                <div class="invite-input-wrap">
+                    <input type="email" id="invite-email" placeholder="john@gmail.com" autocomplete="off">
+                    <i class="fa-solid fa-envelope field-icon"></i>
+                </div>
+            </div>
+
+            <!-- Password -->
+            <div class="invite-field">
+                <label><i class="fa-solid fa-lock label-icon"></i> Password</label>
+                <div class="invite-input-wrap">
+                    <input type="password" id="invite-password" placeholder="Min. 6 characters">
+                    <i class="fa-solid fa-lock field-icon"></i>
+                    <button class="pw-toggle" type="button" onclick="togglePwVis()" id="pw-toggle-btn" title="Toggle visibility">
+                        <i class="fa-solid fa-eye" id="pw-toggle-icon"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Submit Button -->
+            <button id="invite-save-btn" onclick="handleRegisterUser()">
+                <div class="btn-spinner"></div>
+                <span class="btn-label"><i class="fa-solid fa-user-plus"></i> &nbsp;Create Account</span>
+            </button>
+
+            <!-- Footer note -->
+            <div class="invite-footer-note">
+                <i class="fa-solid fa-shield" style="color:rgba(0,212,255,0.4); font-size:10px"></i>
+                Accepts <strong>@gmail.com</strong> &amp; <strong>@oceannav.lk</strong> addresses
+            </div>
+
+        </div>
+    </div>
+    {% endif %}
+
     <div class="notif" id="notif">
         <span>💡</span>
         <span id="notif-msg"></span>
     </div>
-    
+
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script>
+        /* ── Role data ── */
+        const roleData = {
+            user: {
+                cardClass:   'role-user',
+                iconClass:   'fa-solid fa-circle-info',
+                iconColor:   '#00d4ff',
+                titleColor:  '#00d4ff',
+                titleText:   'User Access',
+                descText:    'Standard operator account. Can monitor buoys, view the live map, and update system settings. <strong>Cannot manage other accounts.</strong>',
+                pillActive:  'active-user',
+                pillId:      'pill-user'
+            },
+            admin: {
+                cardClass:   'role-admin',
+                iconClass:   'fa-solid fa-shield-halved',
+                iconColor:   '#2ed15e',
+                titleColor:  '#2ed15e',
+                titleText:   'Admin Access',
+                descText:    'Administrative account. Manage connection profiles, perform active port scanning, view all operators, and monitor all buoys.',
+                pillActive:  'active-admin',
+                pillId:      'pill-admin'
+            },
+            super_admin: {
+                cardClass:   'role-super',
+                iconClass:   'fa-solid fa-crown',
+                iconColor:   '#9d4edd',
+                titleColor:  '#9d4edd',
+                titleText:   'Super Admin Access',
+                descText:    '<strong>Full system authority.</strong> Promote or demote operator roles, register new accounts directly, and terminate any operator account.',
+                pillActive:  'active-super',
+                pillId:      'pill-super'
+            }
+        };
+
+        let currentRole = 'user';
+
+        function selectRole(role) {
+            // Update hidden select
+            document.getElementById('invite-role').value = role;
+            currentRole = role;
+
+            // Update pills
+            ['user', 'admin', 'super_admin'].forEach(r => {
+                const pill = document.getElementById('pill-' + (r === 'super_admin' ? 'super' : r));
+                pill.className = 'role-pill';
+            });
+            const rd = roleData[role];
+            document.getElementById(rd.pillId).classList.add(rd.pillActive);
+
+            // Update description card with fade animation
+            const card = document.getElementById('role-desc-card');
+            card.style.opacity = '0';
+            card.style.transform = 'translateY(4px)';
+            setTimeout(() => {
+                card.className = 'role-desc-card ' + rd.cardClass;  // Removed space issue
+                // Rebuild card content
+                card.className = rd.cardClass;
+                card.id = 'role-desc-card';
+
+                const titleEl = document.getElementById('role-desc-title');
+                titleEl.innerHTML = `<i class="${rd.iconClass}" style="color:${rd.iconColor}"></i><span style="color:${rd.titleColor}">${rd.titleText}</span>`;
+
+                const textEl = document.getElementById('role-desc-text');
+                textEl.innerHTML = rd.descText;
+
+                card.style.opacity = '1';
+                card.style.transform = 'translateY(0)';
+            }, 180);
+        }
+
+        /* ── Password visibility toggle ── */
+        function togglePwVis() {
+            const pw = document.getElementById('invite-password');
+            const icon = document.getElementById('pw-toggle-icon');
+            if (pw.type === 'password') {
+                pw.type = 'text';
+                icon.className = 'fa-solid fa-eye-slash';
+            } else {
+                pw.type = 'password';
+                icon.className = 'fa-solid fa-eye';
+            }
+        }
+
+        /* ── Open / Close panel ── */
+        function openInviteModal() {
+            document.getElementById('invite-panel').classList.add('open');
+            document.getElementById('invite-overlay').classList.add('open');
+            // Reset form
+            document.getElementById('invite-name').value = '';
+            document.getElementById('invite-email').value = '';
+            document.getElementById('invite-password').value = '';
+            selectRole('user');
+            setTimeout(() => document.getElementById('invite-name').focus(), 400);
+        }
+
+        function closeInviteModal() {
+            document.getElementById('invite-panel').classList.remove('open');
+            document.getElementById('invite-overlay').classList.remove('open');
+        }
+
+        /* ESC key closes panel */
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') closeInviteModal();
+        });
+
+        /* Apply card transition style */
+        document.addEventListener('DOMContentLoaded', () => {
+            const card = document.getElementById('role-desc-card');
+            if (card) {
+                card.style.transition = 'opacity 0.2s ease, transform 0.2s ease, border-left-color 0.4s ease, background 0.4s ease';
+            }
+        });
+
+        /* ── Register user ── */
+        async function handleRegisterUser() {
+            const name     = document.getElementById('invite-name').value.trim();
+            const email    = document.getElementById('invite-email').value.trim();
+            const password = document.getElementById('invite-password').value;
+            const role     = document.getElementById('invite-role').value;
+
+            if (!name || !email || !password) {
+                showNotif('All fields are required', true);
+                return;
+            }
+
+            if (!email.endsWith('@gmail.com') && !email.endsWith('@oceannav.lk')) {
+                showNotif('Please use a @gmail.com or @oceannav.lk address', true);
+                return;
+            }
+
+            if (password.length < 6) {
+                showNotif('Password must be at least 6 characters', true);
+                return;
+            }
+
+            const saveBtn = document.getElementById('invite-save-btn');
+            saveBtn.disabled = true;
+            saveBtn.classList.add('loading');
+
+            try {
+                const response = await fetch('/api/users', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, email, password, role })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    showNotif(`✓ Operator "${name}" registered successfully`);
+                    closeInviteModal();
+                    setTimeout(() => window.location.reload(), 1100);
+                } else {
+                    showNotif(data.error || 'Registration failed', true);
+                    saveBtn.disabled = false;
+                    saveBtn.classList.remove('loading');
+                }
+            } catch (error) {
+                showNotif('Connection error — please try again', true);
+                saveBtn.disabled = false;
+                saveBtn.classList.remove('loading');
+            }
+        }
+
+        /* ── Update user role ── */
+        async function updateUserRole(email, role) {
+            if (!confirm(`Change role of ${email} to ${role.replace('_', ' ').toUpperCase()}?`)) {
+                // Cancelled — reload to revert the dropdown visually
+                window.location.reload();
+                return;
+            }
+            try {
+                const response = await fetch(`/api/users/${encodeURIComponent(email)}/role`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ role })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    showNotif(`✓ Role updated to ${role.replace('_', ' ')}`);
+                    setTimeout(() => window.location.reload(), 600);
+                } else {
+                    showNotif(data.error || 'Failed to update role', true);
+                    setTimeout(() => window.location.reload(), 1200);
+                }
+            } catch (error) {
+                showNotif('Connection error — role not saved', true);
+                setTimeout(() => window.location.reload(), 1200);
+            }
+        }
+
+        /* ── Terminate user ── */
+        async function terminateUser(email) {
+            if (!confirm(`Permanently terminate "${email}"?\n\nThis action cannot be undone.`)) return;
+            try {
+                const response = await fetch(`/api/users/${encodeURIComponent(email)}`, {
+                    method: 'DELETE'
+                });
+                const data = await response.json();
+                if (data.success) {
+                    showNotif(`✓ Account "${email}" terminated`);
+                    setTimeout(() => window.location.reload(), 600);
+                } else {
+                    showNotif(data.error || 'Failed to terminate account', true);
+                }
+            } catch (error) {
+                showNotif('Connection error — account not removed', true);
+            }
+        }
+    </script>
 </body>
 </html>
