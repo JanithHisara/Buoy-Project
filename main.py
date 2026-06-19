@@ -608,6 +608,15 @@ import sqlite3
 
 app = Flask(__name__)
 app.secret_key = 'oceannav_secret_key_2025'
+
+# Cache map tiles aggressively for high performance
+@app.after_request
+def add_header(response):
+    if request.path and request.path.startswith('/static/tiles/'):
+        response.cache_control.max_age = 31536000 # 1 year
+        response.cache_control.public = True
+    return response
+
 ser = None
 gps_data = []
 scanning = False
