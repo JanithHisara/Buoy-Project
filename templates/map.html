@@ -7,7 +7,7 @@
 
     <!-- Local CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='leaflet/leaflet.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='maplibre/maplibre-gl.css') }}">
 
     <style>
         /* Premium Map Dashboard Layout */
@@ -375,11 +375,6 @@
             }
         }
 
-        /* Smooth Tile Loading & GPU Acceleration */
-        .leaflet-tile {
-            will-change: transform, opacity;
-            transition: opacity 0.2s ease-in-out !important;
-        }
     </style>
 </head>
 
@@ -466,87 +461,68 @@
     <span id="notif-msg"></span>
 </div>
 
-<!-- Local Leaflet JS -->
-<script src="{{ url_for('static', filename='leaflet/leaflet.js') }}"></script>
+<!-- Local MapLibre JS -->
+<script src="{{ url_for('static', filename='maplibre/maplibre-gl.js') }}"></script>
 <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 
 <script>
 let map;
 let deviceMarkers = {};
 let scanMarkers = [];
-let scanPath;
 let allDevices = [];
 let gpsCount = 0;
 let isScanning = false;
 let checkInterval = null; 
 
-// Offline tile layers
-let standardLayer;
-let currentTileLayer;
-
 function initMap() {
     if (map) return;
 
-    // preferCanvas: true uses HTML5 canvas instead of DOM SVGs for high performance
-    map = L.map('map', {
-        preferCanvas: true,
-        zoomAnimation: true,
-        fadeAnimation: true,
-        markerZoomAnimation: true,
-        inertia: true,
-        inertiaDelay: 50,
-        easeLinearity: 0.1,
-        // Smooth zoom options
-        zoomSnap: 0.25,
-        zoomDelta: 0.25,
-        wheelPxPerZoomLevel: 150,
-        wheelDebounceTime: 50
-    }).setView([6.9271, 79.8612], 10);
-
-    // Sri Lanka waters bounding box to prevent panning into empty space
-    const southWest = L.latLng(5.5, 78.5);
-    const northEast = L.latLng(10.5, 82.5);
-    const bounds = L.latLngBounds(southWest, northEast);
-    map.setMaxBounds(bounds);
-    map.on('drag', function() {
-        map.panInsideBounds(bounds, { animate: false });
-    });
-
-    // Offline tile layers config
-    standardLayer = L.tileLayer('/static/tiles/standard/{z}/{x}/{y}.png', {
+    map = new maplibregl.Map({
+        container: 'map',
+        style: '/static/map-style.json',
+        center: [79.8612, 6.9271], // [lon, lat] for MapLibre
+        zoom: 10,
         minZoom: 8,
-        maxNativeZoom: 16,
         maxZoom: 18,
-        tileSize: 256,
-        noWrap: true,
-        keepBuffer: 4,               // Lower buffer to reduce DOM nodes/GPU memory
-        updateWhenIdle: true,       // Load tiles only when pan/zoom ends
-        updateWhenZooming: false,   // Don't fetch tiles mid-zoom to avoid lag
-        updateInterval: 100,        // Debounce tile updates
-        attribution: "OceanNav Standard Map"
+        maxBounds: [[78.5, 5.5], [82.5, 10.5]] // [[west, south], [east, north]]
     });
 
-    // Always use the standard light map
-    standardLayer.addTo(map);
-    currentTileLayer = standardLayer;
+    map.on('load', function() {
+        // Add GeoJSON source for scan path
+        map.addSource('scanPath', {
+            type: 'geojson',
+            data: {
+                type: 'Feature',
+                properties: {},
+                geometry: {
+                    type: 'LineString',
+                    coordinates: []
+                }
+            }
+        });
 
-    // Listen for custom theme change events (always keep standard light map)
-    document.addEventListener('themechanged', function(e) {
-        // Standard light map is preserved regardless of UI theme changes
+        // Add line layer for scan path
+        map.addLayer({
+            id: 'scanPathLine',
+            type: 'line',
+            source: 'scanPath',
+            layout: {
+                'line-join': 'round',
+                'line-cap': 'round'
+            },
+            paint: {
+                'line-color': '#00e5b0',
+                'line-width': 4,
+                'line-opacity': 0.9
+            }
+        });
+
+        // Load active devices
+        loadActiveDevices();
+        
+        // Start background poller for status
+        startStatusPoller();
     });
-
-    scanPath = L.polyline([], {
-        color: '#00e5b0',
-        weight: 3,
-        opacity: 0.9,
-        lineJoin: 'round'
-    }).addTo(map);
-
-    // Load active devices
-    loadActiveDevices();
-    
-    // Start background listener for reset event
-    startStatusPoller();
 }
 
 async function loadActiveDevices() {
@@ -615,22 +591,18 @@ function filterDevices() {
 
 function updateDeviceMarkers(devices) {
     // Clear old device markers
-    Object.values(deviceMarkers).forEach(m => map.removeLayer(m));
+    Object.values(deviceMarkers).forEach(m => m.remove());
     deviceMarkers = {};
 
     devices.forEach(d => {
         const statusClass = d.status === 'online' ? 'online' : (d.status === 'warning' ? 'warning' : 'offline');
         
-        // Custom premium divIcon with CSS animations
-        const icon = L.divIcon({
-            html: `<div class="pulse-marker ${statusClass}"></div>`,
-            className: 'pulse-marker-container',
-            iconSize: [16, 16],
-            iconAnchor: [8, 8]
-        });
+        // Custom DOM element for the marker
+        const el = document.createElement('div');
+        el.className = 'pulse-marker-container';
+        el.innerHTML = `<div class="pulse-marker ${statusClass}"></div>`;
 
-        const marker = L.marker([d.lat, d.lon], { icon: icon }).addTo(map);
-        marker.bindPopup(`
+        const popupHtml = `
             <div style="font-family:'DM Sans',sans-serif;color:var(--text-primary);min-width:160px;padding:2px;">
                 <b style="font-size:14px;color:var(--accent);display:block;margin-bottom:6px;">📡 ${d.name || d.id}</b>
                 <span style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:2px;">Status: <strong style="color:${d.status === 'online' ? 'var(--success)' : (d.status === 'warning' ? 'var(--warning)' : 'var(--text-muted)')}">${d.status}</strong></span>
@@ -639,7 +611,14 @@ function updateDeviceMarkers(devices) {
                     Lat: ${parseFloat(d.lat).toFixed(6)}<br>Lon: ${parseFloat(d.lon).toFixed(6)}
                 </div>
             </div>
-        `);
+        `;
+
+        const popup = new maplibregl.Popup({ offset: 12 }).setHTML(popupHtml);
+
+        const marker = new maplibregl.Marker({ element: el })
+            .setLngLat([d.lon, d.lat]) // [lon, lat] format
+            .setPopup(popup)
+            .addTo(map);
 
         deviceMarkers[d.id] = marker;
     });
@@ -655,16 +634,24 @@ function selectDevice(device) {
     const item = document.getElementById(`device-item-${device.id}`);
     if (item) item.classList.add('active');
 
-    // Pan & zoom smoothly
-    map.setView([device.lat, device.lon], 12, {
-        animate: true,
-        duration: 0.8
+    // Smooth fly to
+    map.flyTo({
+        center: [device.lon, device.lat],
+        zoom: 12,
+        speed: 1.2,
+        curve: 1.4,
+        essential: true
     });
 
     // Open popup
     const marker = deviceMarkers[device.id];
     if (marker) {
-        setTimeout(() => marker.openPopup(), 400);
+        // Close other popups
+        Object.values(deviceMarkers).forEach(m => {
+            const p = m.getPopup();
+            if (p && p.isOpen()) p.remove();
+        });
+        setTimeout(() => marker.togglePopup(), 600);
     }
 }
 
@@ -697,9 +684,20 @@ async function scanGPS() {
     // Clear previous scan path
     gpsCount = 0;
     document.getElementById('gps-count').textContent = '0';
-    scanMarkers.forEach(m => map.removeLayer(m));
+    scanMarkers.forEach(m => m.remove());
     scanMarkers = [];
-    scanPath.setLatLngs([]);
+    
+    const source = map.getSource('scanPath');
+    if (source) {
+        source.setData({
+            type: 'Feature',
+            properties: {},
+            geometry: {
+                type: 'LineString',
+                coordinates: []
+            }
+        });
+    }
     
     showNotif("Sending GPS scan command to ESP32...");
     
@@ -753,19 +751,16 @@ function checkForGPSData() {
             const res = await fetch('/gps');
             const points = await res.json();
             
-            // Check if we have points
             if (points && points.length > 0) {
                 updateMapWithPoints(points);
                 showNotif(`Received ${points.length} GPS points!`);
                 
-                // Stop checking
                 clearInterval(checkInterval);
                 checkInterval = null;
                 isScanning = false;
                 document.getElementById('scanBtn').disabled = false;
                 document.getElementById('scanBtn').textContent = 'Scan GPS';
             } else if (attempts > 8) {
-                // Stop after 8 attempts
                 clearInterval(checkInterval);
                 checkInterval = null;
                 isScanning = false;
@@ -776,65 +771,74 @@ function checkForGPSData() {
         } catch (e) {
             console.log("Error checking GPS:", e);
         }
-    }, 1000); // Check every 1 second
+    }, 1000);
 }
 
 function updateMapWithPoints(points) {
     console.log("Updating map with", points.length, "points");
     
-    const buoyIcon = L.divIcon({
-        html: '<div class="gps-track-marker"></div>',
-        className: 'pulse-marker-container',
-        iconSize: [12, 12],
-        iconAnchor: [6, 6]
-    });
-    
-    const latLngs = [];
+    const coordinates = [];
     points.forEach((p, index) => {
-        latLngs.push([p.lat, p.lon]);
+        coordinates.push([p.lon, p.lat]); // [lon, lat] format
         
-        // Re-use markers dynamically to avoid blinking deletion/creation
+        const popupHtml = `
+            <div style="font-family:'DM Sans',sans-serif;padding:2px;">
+                <b style="color:var(--success);font-size:13px;display:block;margin-bottom:4px;">📍 GPS Point ${index + 1}</b>
+                <div style="font-family:monospace;font-size:11px;color:var(--text-muted);border-top:1px solid rgba(255,255,255,0.06);padding-top:4px;">
+                    Lat: ${p.lat.toFixed(6)}<br>Lon: ${p.lon.toFixed(6)}
+                </div>
+            </div>
+        `;
+        
         if (scanMarkers[index]) {
-            scanMarkers[index].setLatLng([p.lat, p.lon]);
-            scanMarkers[index].getPopup().setContent(`
-                <div style="font-family:'DM Sans',sans-serif;padding:2px;">
-                    <b style="color:var(--success);font-size:13px;display:block;margin-bottom:4px;">📍 GPS Point ${index + 1}</b>
-                    <div style="font-family:monospace;font-size:11px;color:var(--text-muted);border-top:1px solid rgba(255,255,255,0.06);padding-top:4px;">
-                        Lat: ${p.lat.toFixed(6)}<br>Lon: ${p.lon.toFixed(6)}
-                    </div>
-                </div>
-            `);
+            scanMarkers[index].setLngLat([p.lon, p.lat]);
+            scanMarkers[index].getPopup().setHTML(popupHtml);
         } else {
-            const marker = L.marker([p.lat, p.lon], { icon: buoyIcon }).addTo(map);
-            marker.bindPopup(`
-                <div style="font-family:'DM Sans',sans-serif;padding:2px;">
-                    <b style="color:var(--success);font-size:13px;display:block;margin-bottom:4px;">📍 GPS Point ${index + 1}</b>
-                    <div style="font-family:monospace;font-size:11px;color:var(--text-muted);border-top:1px solid rgba(255,255,255,0.06);padding-top:4px;">
-                        Lat: ${p.lat.toFixed(6)}<br>Lon: ${p.lon.toFixed(6)}
-                    </div>
-                </div>
-            `);
+            const el = document.createElement('div');
+            el.className = 'pulse-marker-container';
+            el.innerHTML = '<div class="gps-track-marker"></div>';
+
+            const popup = new maplibregl.Popup({ offset: 8 }).setHTML(popupHtml);
+
+            const marker = new maplibregl.Marker({ element: el })
+                .setLngLat([p.lon, p.lat])
+                .setPopup(popup)
+                .addTo(map);
+
             scanMarkers.push(marker);
         }
     });
     
-    // Clean up excess markers if coordinates length decreases
     while (scanMarkers.length > points.length) {
         const m = scanMarkers.pop();
-        map.removeLayer(m);
+        m.remove();
     }
     
-    // Update path polyline points
-    scanPath.setLatLngs(latLngs);
+    const source = map.getSource('scanPath');
+    if (source) {
+        source.setData({
+            type: 'Feature',
+            properties: {},
+            geometry: {
+                type: 'LineString',
+                coordinates: coordinates
+            }
+        });
+    }
     
-    // Update GPS count stats
     gpsCount = points.length;
     document.getElementById('gps-count').textContent = gpsCount;
     
-    // Fit map to show all points smoothly
-    if (latLngs.length > 0) {
-        const bounds = L.latLngBounds(latLngs);
-        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 13, animate: true, duration: 0.8 });
+    if (coordinates.length > 0) {
+        const bounds = coordinates.reduce((b, coord) => {
+            return b.extend(coord);
+        }, new maplibregl.LngLatBounds(coordinates[0], coordinates[0]));
+
+        map.fitBounds(bounds, {
+            padding: 50,
+            maxZoom: 13,
+            duration: 800
+        });
     }
 }
 
@@ -892,7 +896,12 @@ function startStatusPoller() {
             
             if (data.device_located) {
                 showNotif("✨ ESP32 Reset: Device Located!");
-                map.setView([6.9271, 79.8612], 12, { animate: true, duration: 1.2 });
+                map.flyTo({
+                    center: [79.8612, 6.9271],
+                    zoom: 12,
+                    speed: 1.0,
+                    essential: true
+                });
             }
         } catch (e) {
             console.log("Error checking status:", e);
@@ -907,7 +916,6 @@ window.initMap = initMap;
 window.showNotif = showNotif;
 window.filterDevices = filterDevices;
 
-// Start when page loads
 window.onload = initMap;
 </script>
 

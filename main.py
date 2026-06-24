@@ -596,7 +596,7 @@
 #     app.run(debug=True, host='0.0.0.0', port=5000)
 
 
-from flask import Flask, render_template, jsonify, request, session
+from flask import Flask, render_template, jsonify, request, session, Response
 import serial.tools.list_ports
 import serial
 import threading
@@ -1237,6 +1237,34 @@ def connection_status():
         'gps_points': len(gps_data),
         'device_located': located
     })
+
+# -------------------- OFFLINE VECTOR TILE SERVER --------------------
+@app.route('/tiles/<int:z>/<int:x>/<int:y>.pbf')
+def get_mbtiles_tile(z, x, y):
+    try:
+        db_path = os.path.join(app.root_path, 'sri_lanka.mbtiles', 'osm-2020-02-10-v3.11_asia_sri-lanka.mbtiles')
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        
+        # TMS coordinate system Y-flip
+        tms_y = (1 << z) - 1 - y
+        
+        cursor.execute("SELECT tile_data FROM tiles WHERE zoom_level=? AND tile_column=? AND tile_row=?", (z, x, tms_y))
+        row = cursor.fetchone()
+        conn.close()
+        
+        if row:
+            response = Response(row[0], mimetype='application/x-protobuf')
+            response.headers['Content-Encoding'] = 'gzip'
+            # Cache tiles for high performance
+            response.cache_control.max_age = 31536000 # 1 year
+            response.cache_control.public = True
+            return response
+        else:
+            return '', 404
+    except Exception as e:
+        print(f"[Tiles] Error serving tile: {e}")
+        return '', 500
 
 # -------------------- RUN SERVER --------------------
 if __name__ == '__main__':
