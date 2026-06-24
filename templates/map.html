@@ -474,55 +474,72 @@ let gpsCount = 0;
 let isScanning = false;
 let checkInterval = null; 
 
-function initMap() {
+async function initMap() {
     if (map) return;
 
-    map = new maplibregl.Map({
-        container: 'map',
-        style: '/static/map-style.json',
-        center: [79.8612, 6.9271], // [lon, lat] for MapLibre
-        zoom: 10,
-        minZoom: 8,
-        maxZoom: 18,
-        maxBounds: [[78.5, 5.5], [82.5, 10.5]] // [[west, south], [east, north]]
-    });
-
-    map.on('load', function() {
-        // Add GeoJSON source for scan path
-        map.addSource('scanPath', {
-            type: 'geojson',
-            data: {
-                type: 'Feature',
-                properties: {},
-                geometry: {
-                    type: 'LineString',
-                    coordinates: []
-                }
-            }
-        });
-
-        // Add line layer for scan path
-        map.addLayer({
-            id: 'scanPathLine',
-            type: 'line',
-            source: 'scanPath',
-            layout: {
-                'line-join': 'round',
-                'line-cap': 'round'
-            },
-            paint: {
-                'line-color': '#00e5b0',
-                'line-width': 4,
-                'line-opacity': 0.9
-            }
-        });
-
-        // Load active devices
-        loadActiveDevices();
+    try {
+        const res = await fetch('/static/map-style.json');
+        const style = await res.json();
         
-        // Start background poller for status
-        startStatusPoller();
-    });
+        // Dynamically resolve tile source URL to absolute URL to ensure MapLibre works on any host/port
+        style.sources.openmaptiles.tiles = [
+            window.location.origin + '/tiles/{z}/{x}/{y}.pbf'
+        ];
+
+        map = new maplibregl.Map({
+            container: 'map',
+            style: style,
+            center: [79.8612, 6.9271], // [lon, lat] for MapLibre
+            zoom: 10,
+            minZoom: 8,
+            maxZoom: 18,
+            maxBounds: [[78.5, 5.5], [82.5, 10.5]] // [[west, south], [east, north]]
+        });
+
+        map.on('load', function() {
+            // Add GeoJSON source for scan path
+            map.addSource('scanPath', {
+                type: 'geojson',
+                data: {
+                    type: 'Feature',
+                    properties: {},
+                    geometry: {
+                        type: 'LineString',
+                        coordinates: []
+                    }
+                }
+            });
+
+            // Add line layer for scan path
+            map.addLayer({
+                id: 'scanPathLine',
+                type: 'line',
+                source: 'scanPath',
+                layout: {
+                    'line-join': 'round',
+                    'line-cap': 'round'
+                },
+                paint: {
+                    'line-color': '#00e5b0',
+                    'line-width': 4,
+                    'line-opacity': 0.9
+                }
+            });
+
+            // Load active devices
+            loadActiveDevices();
+            
+            // Start background poller for status
+            startStatusPoller();
+        });
+
+        map.on('error', function(e) {
+            console.error('[MapLibre Error]', e.error || e);
+        });
+
+    } catch (err) {
+        console.error("Failed to load map style:", err);
+    }
 }
 
 async function loadActiveDevices() {
