@@ -1,9 +1,7 @@
 #include "GPS_driver.h"
 
-#include <Arduino.h>
-
 TinyGPSPlus gps;
-HardwareSerial GPSserial(2);
+HardwareSerial GPSserial(1);
 
 void GPS_init()
 {
@@ -12,29 +10,9 @@ void GPS_init()
 
 void GPS_loop()
 {
-    static unsigned long last_print = 0;
-    static unsigned long char_count = 0;
-
     while (GPSserial.available() > 0)
     {
-        char c = GPSserial.read();
-        gps.encode(c);
-        char_count++;
-    }
-
-    if (millis() - last_print > 5000)
-    {
-        last_print = millis();
-        if (char_count > 0)
-        {
-            Serial.printf("[GPS] Received %lu chars from module. Satellites: %lu, Valid Lock: %s\n",
-                          char_count, (unsigned long)gps.satellites.value(), gps.location.isValid() ? "YES" : "NO");
-            char_count = 0;
-        }
-        else
-        {
-            Serial.println("[GPS] WARNING: No serial data received from GPS module! Check RX/TX wiring.");
-        }
+        gps.encode(GPSserial.read());
     }
 }
 

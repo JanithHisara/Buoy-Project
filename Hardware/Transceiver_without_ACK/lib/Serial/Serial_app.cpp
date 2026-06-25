@@ -4,8 +4,8 @@ TaskHandle_t SerialAppHandle;
 
 void Serial_app(void *pvParameters)
 {
-  static char serial_TX_Buf[256];
-  static char serial_RX_Buf[256];
+  static char serial_TX_Buf[128];
+  static char serial_RX_Buf[128];
 
   while (1)
   {

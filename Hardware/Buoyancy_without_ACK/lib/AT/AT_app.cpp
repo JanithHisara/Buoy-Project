@@ -1,7 +1,5 @@
 #include "AT_app.h"
 
-TaskHandle_t AT_AppHandle;
-
 #define LED_BUILTIN 2
 
 void AT_app(void *pvParameters)
@@ -96,64 +94,65 @@ void AT_app(void *pvParameters)
         {
             Serial.println("BOUND");
             Serial.println("Contacting Me");
-            if (strcmp(AT_cmdInfo.BuoyancyID, BUOYANCY_ID) == 0)
+            if (strcmp(AT_cmdInfo.BuoyancyID, BUOYANCY_ID) == 0 && strcmp(AT_cmdInfo.UserID, SAVED_TRANSCEIVER_ID) == 0)
             {
-                if (strcmp(AT_cmdInfo.UserID, SAVED_TRANSCEIVER_ID) == 0)
+                Serial.print("Authentification done");
+                switch ((AT_cmdInfo.AT_category))
                 {
-                    Serial.println("Authentification done");
-                    switch ((AT_cmdInfo.AT_category))
-                    {
-                    case AT_CAT_BIND:
-                    {
-                        buoy_bind_state = handle_BIND_AT_CMD(&AT_cmdInfo, BOUND);
-                        break;
-                    }
-                    case AT_CAT_SCAN:
-                    {
-                        handle_SCAN_AT_CMD(&AT_cmdInfo, BOUND);
-                        break;
-                    }
-                    case AT_CAT_CGPS:
-                    {
-                        handle_CGPS_AT_CMD(&AT_cmdInfo);
-                        break;
-                    }
-                    case AT_CAT_CGPSINFO:
-                    {
-                        handle_CGPSINFO_AT_CMD(&AT_cmdInfo);
-                        break;
-                    }
-                    case AT_CAT_BSOC:
-                    {
-                        handle_BSOC_AT_CMD(&AT_cmdInfo);
-                        break;
-                    }
-                    case AT_CAT_LED:
-                    {
-                        handle_LED_AT_CMD(&AT_cmdInfo);
-                        break;
-                    }
-                    default:
-                    {
-                        break;
-                    }
-                    }
-                }
-                else if (AT_cmdInfo.AT_category == AT_CAT_BIND && AT_cmdInfo.AT_type == AT_CMD_TYPE_WRITE && AT_cmdInfo.param_count == 1 && strcmp(AT_cmdInfo.params[0], "0") == 0)
+                case AT_CAT_BIND:
                 {
-                    Serial.println("Authentification bypassed for Unbind command");
+                    /*
+                     if (strcmp(AT_cmdInfo.params[0], "0") == 0)
+                     {
+                         if (AT_cmdInfo.param_count == 1)
+                         {
+                             digitalWrite(LED_BUILTIN, LOW);
+                             // save received TRX ID
+                             SAVED_TRANSCEIVER_ID[0] = '\0'; // clear form ram
+                             saveString(SAVED_TRX_ID_KEY, "");
+
+                             buoy_bind_state = NOT_BOUND;
+                             xQueueSend(AT_to_LoRa_Queue, "Unbound Success", 0);
+                         }
+                         else
+                         {
+                             Serial.println("Wrong Parameter Count");
+                         }
+                     }
+
+                     */
                     buoy_bind_state = handle_BIND_AT_CMD(&AT_cmdInfo, BOUND);
+                    break;
                 }
-                else
+                case AT_CAT_SCAN:
                 {
-                    Serial.print("Authentification failed. Expected TRX: ");
-                    Serial.print(SAVED_TRANSCEIVER_ID);
-                    Serial.print(", Got: ");
-                    Serial.println(AT_cmdInfo.UserID);
-                    
-                    extern char AT_handler_TX_msg[256];
-                    sprintf(AT_handler_TX_msg, "\r\n<%s,%s>\r\n+BIND:AUTH_FAILED\r\nERROR\r\n", AT_cmdInfo.UserID, AT_cmdInfo.BuoyancyID);
-                    xQueueSend(AT_to_LoRa_Queue, AT_handler_TX_msg, 0);
+                    handle_SCAN_AT_CMD(&AT_cmdInfo, BOUND);
+                    break;
+                }
+                case AT_CAT_CGPS:
+                {
+                    handle_CGPS_AT_CMD(&AT_cmdInfo);
+                    break;
+                }
+                case AT_CAT_CGPSINFO:
+                {
+                    handle_CGPSINFO_AT_CMD(&AT_cmdInfo);
+                    break;
+                }
+                case AT_CAT_BSOC:
+                {
+                    handle_BSOC_AT_CMD(&AT_cmdInfo);
+                    break;
+                }
+                case AT_CAT_LED:
+                {
+                    handle_LED_AT_CMD(&AT_cmdInfo);
+                    break;
+                }
+                default:
+                {
+                    break;
+                }
                 }
             }
 

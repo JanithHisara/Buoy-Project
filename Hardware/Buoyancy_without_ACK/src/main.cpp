@@ -14,6 +14,8 @@ QueueHandle_t GPS_to_AT_Queue;
 
 SemaphoreHandle_t GPS_data_request_Semaphore;
 
+TaskHandle_t AT_AppHandle; // Restore definition for AT_app task handle
+
 char BUOYANCY_ID[13];
 char SAVED_TRANSCEIVER_ID[13] = {0};
 
@@ -34,12 +36,12 @@ void setup()
   LoRa_to_AT_Queue = xQueueCreate(5, sizeof(char[128]));
 
   AT_to_GPS_Queue = xQueueCreate(5, sizeof(char[128]));
-  GPS_to_AT_Queue = xQueueCreate(5, sizeof(GPS_Data));
+  GPS_to_AT_Queue = xQueueCreate(5, sizeof(GPS_Data)); // Change back to struct size to avoid overflow
 
   GPS_data_request_Semaphore = xSemaphoreCreateBinary();
 
   xTaskCreatePinnedToCore(LoRa_app, "LoRa_app", 4096, NULL, 1, &LoRaAppHandle, 1);
-  xTaskCreatePinnedToCore(AT_app, "AT_app", 4096, NULL, 1, &AT_AppHandle, 1);
+  xTaskCreatePinnedToCore(AT_app, "AT_app", 4096, NULL, 1, &AT_AppHandle, 1); // Use AT_AppHandle
   xTaskCreatePinnedToCore(GPS_app, "GPS_app", 4096, NULL, 1, &GPSAppHandle, 1);
 }
 

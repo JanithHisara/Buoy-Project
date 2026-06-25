@@ -4,8 +4,8 @@ TaskHandle_t LoRaAppHandle;
 
 void LoRa_app(void *pvParameters)
 {
-    static char LoRa_RX_buf[256];
-    static char LoRa_TX_buf[256];
+    static char LoRa_RX_buf[128];
+    static char LoRa_TX_buf[128];
 
     if (!LoRa_init(433E6))
     {

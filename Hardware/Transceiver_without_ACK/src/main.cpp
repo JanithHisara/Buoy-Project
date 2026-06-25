@@ -20,8 +20,8 @@ void setup()
   Serial.print("TRX ID : ");
   Serial.println(TRX_ID);
 
-  Serial_to_LoRa_Queue = xQueueCreate(5, sizeof(char[256]));
-  LoRa_to_Serial_Queue = xQueueCreate(5, sizeof(char[256]));
+  Serial_to_LoRa_Queue = xQueueCreate(5, sizeof(char[128]));
+  LoRa_to_Serial_Queue = xQueueCreate(5, sizeof(char[128]));
 
   xTaskCreatePinnedToCore(Serial_app, "Serial_app", 4096, NULL, 1, &SerialAppHandle, 0);
   xTaskCreatePinnedToCore(LoRa_app, "LoRa_app", 4096, NULL, 1, &LoRaAppHandle, 1);

@@ -647,6 +647,20 @@ def serial_listener_loop():
                             with data_lock:
                                 device_located_flag = True
                             print("[Serial] Boot Event Detected: ESP32 Located!")
+                            if last_buoyancy_id:
+                                try:
+                                    conn = sqlite3.connect(DATABASE)
+                                    cursor = conn.cursor()
+                                    cursor.execute('''
+                                        UPDATE devices
+                                        SET status = 'online', last_ping = 'Just now'
+                                        WHERE id = ?
+                                    ''', (last_buoyancy_id,))
+                                    conn.commit()
+                                    conn.close()
+                                    print(f"[Serial] Marked device {last_buoyancy_id} as online via boot event")
+                                except Exception as db_err:
+                                    print("[Serial] Database error marking device online:", db_err)
                             
                         # Detect Transceiver ID from serial output
                         elif "TRX ID :" in line:
@@ -1170,11 +1184,11 @@ def scan():
             print(f"Sending real hardware queries for scan of buoy: {device_id}")
             # Bind, turn on GPS, and request info
             ser.write(f"<{connected_trx_id},{device_id}>,AT+BIND=0\n".encode())
-            time.sleep(0.5)
+            time.sleep(1.2)
             ser.write(f"<{connected_trx_id},{device_id}>,AT+BIND=1\n".encode())
-            time.sleep(0.5)
+            time.sleep(1.2)
             ser.write(f"<{connected_trx_id},{device_id}>,AT+CGPS=1\n".encode())
-            time.sleep(0.5)
+            time.sleep(1.2)
             ser.write(f"<{connected_trx_id},{device_id}>,AT+CGPSINFO\n".encode())
         else:
             print("Sending general scan trigger command to ESP32...")
@@ -1186,7 +1200,7 @@ def scan():
         # Simulation delay simulator trigger
         def finish_scanning():
             global scanning, scan_complete
-            time.sleep(3.0)  # Wait 3 seconds for coordinates to collect
+            time.sleep(8.0)  # Wait 8 seconds for coordinates to collect due to delays
             with data_lock:
                 scanning = False
                 scan_complete = True
@@ -1234,18 +1248,18 @@ def get_gps_for_device():
             # Send bind, gps power on, and query commands
             print(f"Sending real hardware queries for device setup: {device_id}")
             ser.write(f"<{connected_trx_id},{device_id}>,AT+BIND=0\n".encode())
-            time.sleep(0.5)
+            time.sleep(1.2)
             ser.write(f"<{connected_trx_id},{device_id}>,AT+BIND=1\n".encode())
-            time.sleep(0.5)
+            time.sleep(1.2)
             ser.write(f"<{connected_trx_id},{device_id}>,AT+CGPS=1\n".encode())
-            time.sleep(0.5)
+            time.sleep(1.2)
             ser.write(f"<{connected_trx_id},{device_id}>,AT+CGPSINFO\n".encode())
             ser.flush()
             
-            # Wait for coordinates to arrive (up to 5 seconds)
+            # Wait for coordinates to arrive (up to 10 seconds due to increased delays and hardware response times)
             start_time = time.time()
             lat, lon = None, None
-            while time.time() - start_time < 5.0:
+            while time.time() - start_time < 10.0:
                 with data_lock:
                     if device_id in latest_buoy_gps:
                         lat = latest_buoy_gps[device_id]['lat']

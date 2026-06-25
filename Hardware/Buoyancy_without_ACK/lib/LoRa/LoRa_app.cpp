@@ -1,4 +1,6 @@
 #include "LoRa_app.h"
+#include "Identification.h"
+#include "Memory_driver.h"
 
 TaskHandle_t LoRaAppHandle;
 
@@ -14,6 +16,22 @@ void LoRa_app(void *pvParameters)
     }
 
     Serial.println("LoRa initialized successfully");
+
+    // Send boot notification over LoRa
+    char boot_msg[128];
+    char saved_trx[13];
+    loadString(SAVED_TRX_ID_KEY, saved_trx, sizeof(saved_trx), "");
+    if (strlen(saved_trx) == 12)
+    {
+        snprintf(boot_msg, sizeof(boot_msg), "\r\n<%s,%s>\r\nDEVICE_LOCATED\r\n", saved_trx, BUOYANCY_ID);
+    }
+    else
+    {
+        snprintf(boot_msg, sizeof(boot_msg), "\r\n<ALL,%s>\r\nDEVICE_LOCATED\r\n", BUOYANCY_ID);
+    }
+    LoRa_send(boot_msg);
+    Serial.print("Sent Boot Message over LoRa: ");
+    Serial.println(boot_msg);
 
     while (1)
     {
