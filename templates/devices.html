@@ -887,8 +887,8 @@ async function handleConnectAndSave() {
     if(!name || !deviceId) { showNotif('Enter device name and ID'); return; }
     const saveBtn = document.getElementById('save-btn');
     saveBtn.disabled = true;
-    document.getElementById('save-btn-text').innerHTML = `<div class="loading-spinner"></div> Requesting GPS data...`;
-    showGlobalLoading('Fetching GPS coordinates from backend...');
+    document.getElementById('save-btn-text').innerHTML = `<div class="loading-spinner"></div> Querying ESP32 over LoRa...`;
+    showGlobalLoading('Retrieving live GPS coordinates from Buoyancy ESP32 via LoRa...');
     try {
         const response = await fetch('/gps/device_id', {
             method: 'POST',
@@ -904,13 +904,13 @@ async function handleConnectAndSave() {
             saveBtn.disabled = false;
             showNotif(`GPS coordinates received! Click Save to add device.`);
         } else {
-            showNotif(data.message || 'Failed to get GPS coordinates from backend');
+            showNotif(data.error || 'Failed to retrieve GPS coordinates from hardware');
             resetGpsPendingState();
             saveBtn.disabled = false;
         }
     } catch(error) {
         hideGlobalLoading();
-        showNotif('Backend connection failed. Could not retrieve GPS data.');
+        showNotif('LoRa communication request failed. Check hardware power.');
         resetGpsPendingState();
         saveBtn.disabled = false;
     }

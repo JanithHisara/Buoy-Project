@@ -625,8 +625,14 @@ last_scan_time = 0
 device_located_flag = False
 data_lock = threading.Lock()
 
+# Real hardware tracking variables
+connected_trx_id = "1234567890AB"
+last_buoyancy_id = None
+latest_buoy_gps = {}
+
 def serial_listener_loop():
     global ser, gps_data, scanning, scan_complete, device_located_flag
+    global connected_trx_id, last_buoyancy_id, latest_buoy_gps
     
     while True:
         try:
@@ -642,8 +648,80 @@ def serial_listener_loop():
                                 device_located_flag = True
                             print("[Serial] Boot Event Detected: ESP32 Located!")
                             
-                        # Handle GPS data points
-                        elif "," in line and not line.startswith('{'):
+                        # Detect Transceiver ID from serial output
+                        elif "TRX ID :" in line:
+                            parts = line.split("TRX ID :")
+                            if len(parts) > 1:
+                                connected_trx_id = parts[1].strip().upper()
+                                print(f"[Serial] Connected Transceiver ID: {connected_trx_id}")
+
+                        # Detect Buoyancy ID header bracket format: e.g. <240ac4090b8c,240ac4090b8d>
+                        elif line.startswith("<") and ">" in line:
+                            header = line.replace("<", "").replace(">", "")
+                            parts = header.split(",")
+                            if len(parts) >= 2:
+                                last_buoyancy_id = parts[1].strip().upper()
+                                print(f"[Serial] Last Buoyancy ID set to: {last_buoyancy_id}")
+
+                        # Handle +CGPSINFO data points
+                        elif "+CGPSINFO:" in line:
+                            parts = line.split("+CGPSINFO:")
+                            if len(parts) > 1 and parts[1].strip():
+                                coord_parts = parts[1].split(",")
+                                if len(coord_parts) >= 2:
+                                    try:
+                                        lat = float(coord_parts[0].strip())
+                                        lon = float(coord_parts[1].strip())
+                                        
+                                        # Save to latest buoy GPS cache (including 0.0 for fix status checks)
+                                        if last_buoyancy_id:
+                                            with data_lock:
+                                                latest_buoy_gps[last_buoyancy_id] = {
+                                                    "lat": lat,
+                                                    "lon": lon,
+                                                    "timestamp": time.time()
+                                                }
+                                                
+                                        # Ensure valid GPS lock coordinates for map path and database logs
+                                        if lat != 0.0 and lon != 0.0:
+                                            with data_lock:
+                                                gps_data.append({
+                                                    "lat": lat,
+                                                    "lon": lon
+                                                })
+                                                # Limit coordinates cache size
+                                                if len(gps_data) > 100:
+                                                    gps_data.pop(0)
+                                                    
+                                            # Save to SQLite DB
+                                            try:
+                                                conn = sqlite3.connect('oceannav.db')
+                                                cursor = conn.cursor()
+                                                cursor.execute('''
+                                                    INSERT INTO gps_logs (device_id, lat, lon)
+                                                    VALUES (?, ?, ?)
+                                                ''', (last_buoyancy_id or ser.port, lat, lon))
+                                                
+                                                if last_buoyancy_id:
+                                                    cursor.execute('''
+                                                        UPDATE devices
+                                                        SET lat = ?, lon = ?, status = 'online', last_ping = 'Just now'
+                                                        WHERE id = ?
+                                                    ''', (lat, lon, last_buoyancy_id))
+                                                    
+                                                conn.commit()
+                                                conn.close()
+                                            except Exception as db_err:
+                                                print("[Serial] Database GPS save/update error:", db_err)
+                                                
+                                            print(f"[Serial] Parsed GPS coordinate: lat={lat}, lon={lon} for buoy={last_buoyancy_id}")
+                                        else:
+                                            print(f"[Serial] GPS module responded but has no satellite lock yet (lat=0.0, lon=0.0)")
+                                    except ValueError:
+                                        pass
+                                    
+                        # Handle original legacy simulated/fallback data points if they are direct coords
+                        elif "," in line and not line.startswith("{"):
                             parts = line.split(",")
                             if len(parts) >= 2:
                                 try:
@@ -655,11 +733,9 @@ def serial_listener_loop():
                                             "lat": lat,
                                             "lon": lon
                                         })
-                                        # Limit coordinates cache size
                                         if len(gps_data) > 100:
                                             gps_data.pop(0)
                                             
-                                    # Save to SQLite DB
                                     try:
                                         conn = sqlite3.connect('oceannav.db')
                                         cursor = conn.cursor()
@@ -672,7 +748,7 @@ def serial_listener_loop():
                                     except Exception as db_err:
                                         print("[Serial] Database GPS save error:", db_err)
                                         
-                                    print(f"[Serial] Parsed GPS coordinate: lat={lat}, lon={lon}")
+                                    print(f"[Serial] Parsed direct GPS coordinate: lat={lat}, lon={lon}")
                                 except ValueError:
                                     pass
             else:
@@ -784,21 +860,6 @@ def init_db():
                 VALUES (:name, :email, :password, :role, :status, :last_active, :avatar, :avatar_bg)
             ''', users_db)
         
-        # Seed devices if empty
-        cursor.execute("SELECT COUNT(*) FROM devices")
-        if cursor.fetchone()[0] == 0:
-            devices_db = [
-                {"id": "BUOY-Test", "port": "COM3", "version": "v2.4.1", "lat": 65.9271, "lon": 79.8612, "battery": 87, "signal": 80, "status": "online", "last_ping": "2s ago", "active": 1},
-                {"id": "BUOY-002", "port": "COM5", "version": "v2.4.1", "lat": 6.9345, "lon": 79.8650, "battery": 92, "signal": 100, "status": "online", "last_ping": "1s ago", "active": 1},
-                {"id": "BUOY-003", "port": "COM7", "version": "v2.3.0", "lat": 6.9102, "lon": 79.8580, "battery": 12, "signal": 20, "status": "offline", "last_ping": "42m ago", "active": 0},
-                {"id": "BUOY-004", "port": "COM9", "version": "v2.4.0", "lat": 6.9401, "lon": 79.8700, "battery": 34, "signal": 40, "status": "warning", "last_ping": "8s ago", "active": 1},
-                {"id": "BUOY-005", "port": "COM11", "version": "v2.4.1", "lat": 6.9180, "lon": 79.8620, "battery": 74, "signal": 75, "status": "online", "last_ping": "3s ago", "active": 1},
-                {"id": "BUOY-006", "port": "COM13", "version": "v2.4.1", "lat": 6.9520, "lon": 79.8750, "battery": 61, "signal": 85, "status": "online", "last_ping": "5s ago", "active": 1}
-            ]
-            conn.executemany('''
-                INSERT INTO devices (id, port, version, lat, lon, battery, signal, status, last_ping, active)
-                VALUES (:id, :port, :version, :lat, :lon, :battery, :signal, :status, :last_ping, :active)
-            ''', devices_db)
         
         conn.commit()
 
@@ -1058,9 +1119,19 @@ def connect():
             device_located_flag = False
             gps_data = []
             
+        # Connect to serial port
         ser = serial.Serial(port, 115200, timeout=1)
-        print(f"Connected to {port}")
         
+        # Force ESP32 to reset by toggling DTR and RTS lines
+        print(f"Resetting ESP32 on {port} to capture TRX ID...")
+        ser.dtr = False
+        ser.rts = True
+        time.sleep(0.1)
+        ser.dtr = True
+        ser.rts = False
+        time.sleep(0.6)  # Give ESP32 time to start boot sequence
+        
+        print(f"Connected to {port}")
         return jsonify({"status": "connected", "port": port})
     
     except Exception as e:
@@ -1070,10 +1141,22 @@ def connect():
 # -------------------- SEND SCAN COMMAND --------------------
 @app.route('/scan', methods=['GET', 'POST'])
 def scan():
-    global ser, scanning, scan_complete, gps_data, last_scan_time
+    global ser, scanning, scan_complete, gps_data, last_scan_time, connected_trx_id
     
     if not ser or not ser.is_open:
         return jsonify({"status": "no device", "error": "No serial connection"})
+        
+    # Get device ID if provided in JSON payload
+    device_id = None
+    if request.is_json:
+        device_id = request.json.get("device_id")
+    elif request.method == 'POST' and request.values:
+        device_id = request.values.get("device_id")
+    elif request.method == 'GET' and request.args:
+        device_id = request.args.get("device_id")
+        
+    if device_id:
+        device_id = device_id.strip().upper()
     
     try:
         # Reset coordinate cache on start of new scan
@@ -1083,10 +1166,21 @@ def scan():
             scan_complete = False
             
         # Send command triggers to ESP32
-        print("Sending scan trigger command to ESP32...")
-        ser.write(b"AT+CGPSINFO?\n")
+        if device_id:
+            print(f"Sending real hardware queries for scan of buoy: {device_id}")
+            # Bind, turn on GPS, and request info
+            ser.write(f"<{connected_trx_id},{device_id}>,AT+BIND=0\n".encode())
+            time.sleep(0.5)
+            ser.write(f"<{connected_trx_id},{device_id}>,AT+BIND=1\n".encode())
+            time.sleep(0.5)
+            ser.write(f"<{connected_trx_id},{device_id}>,AT+CGPS=1\n".encode())
+            time.sleep(0.5)
+            ser.write(f"<{connected_trx_id},{device_id}>,AT+CGPSINFO\n".encode())
+        else:
+            print("Sending general scan trigger command to ESP32...")
+            ser.write(f"<{connected_trx_id},ALL>,AT+SCAN\n".encode())
+            
         ser.flush()
-        
         last_scan_time = time.time()
         
         # Simulation delay simulator trigger
@@ -1119,30 +1213,73 @@ def get_gps():
 # -------------------- NEW ENDPOINT: ADD DEVICE WITH RANDOM LOCATION --------------------
 @app.route('/gps/device_id', methods=['POST'])
 def get_gps_for_device():
+    global ser, connected_trx_id, latest_buoy_gps
     data = request.json
     device_id = data.get('device_id')
     device_name = data.get('device_name')
     
+    if device_id:
+        device_id = device_id.strip().upper()
+        
     print(f"Adding new device: Name={device_name}, ID={device_id}")
     
-    lat = round(random.uniform(5.5, 9.5), 6)
-    lon = round(random.uniform(79.5, 82.0), 6)
-    
-    ocean_variant = random.choice([1, 2, 3])
-    if ocean_variant == 1:
-        lat = round(random.uniform(5.0, 15.0), 6)
-        lon = round(random.uniform(80.0, 88.0), 6)
-    elif ocean_variant == 2:
-        lat = round(random.uniform(5.0, 12.0), 6)
-        lon = round(random.uniform(72.0, 78.0), 6)
-    
-    print(f"Generated random location: lat={lat}, lon={lon}")
-    
+    # If serial is connected, send real commands to query physical hardware location
+    if ser and ser.is_open:
+        try:
+            # Clear previous cache for this device
+            with data_lock:
+                if device_id and device_id in latest_buoy_gps:
+                    del latest_buoy_gps[device_id]
+            
+            # Send bind, gps power on, and query commands
+            print(f"Sending real hardware queries for device setup: {device_id}")
+            ser.write(f"<{connected_trx_id},{device_id}>,AT+BIND=0\n".encode())
+            time.sleep(0.5)
+            ser.write(f"<{connected_trx_id},{device_id}>,AT+BIND=1\n".encode())
+            time.sleep(0.5)
+            ser.write(f"<{connected_trx_id},{device_id}>,AT+CGPS=1\n".encode())
+            time.sleep(0.5)
+            ser.write(f"<{connected_trx_id},{device_id}>,AT+CGPSINFO\n".encode())
+            ser.flush()
+            
+            # Wait for coordinates to arrive (up to 5 seconds)
+            start_time = time.time()
+            lat, lon = None, None
+            while time.time() - start_time < 5.0:
+                with data_lock:
+                    if device_id in latest_buoy_gps:
+                        lat = latest_buoy_gps[device_id]['lat']
+                        lon = latest_buoy_gps[device_id]['lon']
+                        break
+                time.sleep(0.2)
+                
+            if lat is not None and lon is not None:
+                # If coordinates are 0.0, the hardware is connected but has no lock
+                if lat == 0.0 and lon == 0.0:
+                    return jsonify({
+                        'success': False,
+                        'error': 'GPS module connected but waiting for satellite lock (move outdoors / clear sky view required)'
+                    })
+                return jsonify({
+                    'success': True,
+                    'lat': lat,
+                    'lon': lon,
+                    'message': f'Real GPS coordinates retrieved for {device_name}'
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': 'Buoyancy hardware did not respond. Check LoRa range and power.'
+                })
+        except Exception as e:
+            return jsonify({
+                'success': False,
+                'error': f'Serial communication error: {str(e)}'
+            })
+            
     return jsonify({
-        'success': True,
-        'lat': lat,
-        'lon': lon,
-        'message': f'GPS coordinates generated for {device_name}'
+        'success': False,
+        'error': 'No serial connection to Transceiver'
     })
 
 # -------------------- API ROUTES --------------------

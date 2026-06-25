@@ -473,6 +473,7 @@ let allDevices = [];
 let gpsCount = 0;
 let isScanning = false;
 let checkInterval = null; 
+let selectedDevice = null;
 
 async function initMap() {
     if (map) return;
@@ -646,6 +647,8 @@ function updateDeviceMarkers(devices) {
 }
 
 function selectDevice(device) {
+    selectedDevice = device;
+    
     // Highlight list item
     document.querySelectorAll('.device-item').forEach(el => el.classList.remove('active'));
     const item = document.getElementById(`device-item-${device.id}`);
@@ -716,10 +719,20 @@ async function scanGPS() {
         });
     }
     
-    showNotif("Sending GPS scan command to ESP32...");
+    let payload = {};
+    if (selectedDevice) {
+        payload = { device_id: selectedDevice.id };
+        showNotif(`Sending GPS scan command for ${selectedDevice.name || selectedDevice.id}...`);
+    } else {
+        showNotif("Sending GPS scan command to ESP32...");
+    }
     
     try {
-        const res = await fetch('/scan', { method: 'POST' });
+        const res = await fetch('/scan', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
         const data = await res.json();
         
         if (data.status === 'sent') {
@@ -920,6 +933,9 @@ function startStatusPoller() {
                     essential: true
                 });
             }
+            
+            // Reload active devices to update map markers dynamically
+            loadActiveDevices();
         } catch (e) {
             console.log("Error checking status:", e);
         }
