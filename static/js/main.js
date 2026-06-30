@@ -108,7 +108,29 @@ document.addEventListener('DOMContentLoaded', () => {
         const themeLabel = document.getElementById('theme-label');
         if (themeLabel) themeLabel.textContent = 'Light';
     }
+
+    // Start fetching stats immediately and every 5 seconds
+    fetchStats();
+    setInterval(fetchStats, 5000);
 });
+
+// Fetch stats and update UI
+async function fetchStats() {
+    try {
+        const response = await fetch('/api/stats');
+        const data = await response.json();
+        
+        const totalEl = document.getElementById('total-buoys-count');
+        const activeEl = document.getElementById('active-buoys-count');
+        const lostEl = document.getElementById('signal-lost-count');
+        
+        if (totalEl) totalEl.textContent = data.total_buoys;
+        if (activeEl) activeEl.textContent = data.active_buoys;
+        if (lostEl) lostEl.textContent = data.signal_lost;
+    } catch (error) {
+        console.error('Failed to fetch stats:', error);
+    }
+}
 
 // Save theme preference
 function saveThemePreference() {

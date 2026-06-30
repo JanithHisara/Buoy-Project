@@ -8,6 +8,7 @@
     <!-- Google Fonts commented out for offline support -->
     <!-- <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"> -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='maplibre/maplibre-gl.css') }}">
     <style>
         /* Additional animation container styles - preserves original dashboard look */
         .map-wrapper {
@@ -76,7 +77,7 @@
         /* Keep all original stat cards and sidebar intact */
         .stats-row {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(3, 1fr);
             gap: 15px;
             margin-bottom: 20px;
         }
@@ -245,39 +246,35 @@
                 </button>
             </div>
             
-            <div id="content-area">
-                <div class="stats-row">
-                    <div class="stat-card">
+            <div id="content-area" style="display: flex; gap: 24px; align-items: stretch; flex-wrap: wrap;">
+                
+                <!-- Left Side: Stats Column -->
+                <div class="stats-column" style="display: flex; flex-direction: column; gap: 20px; flex: 1; min-width: 250px; max-width: 300px;">
+                    <div class="stat-card" style="flex: 1; display: flex; flex-direction: column; justify-content: center;">
+                        <div class="stat-label">Total Buoys</div>
+                        <div class="stat-value" id="total-buoys-count">0</div>
+                        <div class="stat-delta">Total devices registered</div>
+                    </div>
+                    <div class="stat-card" style="flex: 1; display: flex; flex-direction: column; justify-content: center;">
                         <div class="stat-label">Active Buoys</div>
-                        <div class="stat-value accent">14</div>
-                        <div class="stat-delta up">▲ 2 since yesterday</div>
+                        <div class="stat-value accent" id="active-buoys-count">0</div>
+                        <div class="stat-delta">Currently online</div>
                     </div>
-                    <div class="stat-card">
-                        <div class="stat-label">GPS Points</div>
-                        <div class="stat-value success" id="gps-count">0</div>
-                        <div class="stat-delta">Collected today</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">Alerts</div>
-                        <div class="stat-value warning">3</div>
+                    <div class="stat-card" style="flex: 1; display: flex; flex-direction: column; justify-content: center;">
+                        <div class="stat-label">Signal Lost</div>
+                        <div class="stat-value warning" id="signal-lost-count">0</div>
                         <div class="stat-delta">Requires attention</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">Coverage</div>
-                        <div class="stat-value">84%</div>
-                        <div class="stat-delta">Zone A–F</div>
                     </div>
                 </div>
                 
-                <!-- Map section replaced with Animation Canvas -->
-                <div class="map-wrapper">
-                    <div class="map-header">
-                        <h3>🌊 Ocean Dynamics — Live Marine Traffic</h3>
-                        <div class="live-badge">⚡ REAL-TIME VIZ</div>
+                <!-- Right Side: Square Mini Map Section -->
+                <div class="map-wrapper" style="flex: 2; aspect-ratio: 1/1; min-width: 400px; max-height: 75vh; position: relative; border-radius: 16px; overflow: hidden; background: #040e1a; border: 1px solid var(--border);">
+                    <div class="map-header" style="position: absolute; top: 0; left: 0; width: 100%; z-index: 2; background: linear-gradient(to bottom, rgba(4,14,26,0.9), transparent); padding: 15px;">
+                        <h3 style="margin: 0; font-size: 14px; color: #fff;">🌊 Nearest LoRa Range</h3>
                     </div>
-                    <canvas id="oceanCanvas"></canvas>
-                    <div class="gps-overlay" id="liveCoords">--</div>
+                    <div id="miniMap" style="width: 100%; height: 100%;"></div>
                 </div>
+                
             </div>
         </div>
     </div>
@@ -290,333 +287,162 @@
     <!-- Leaflet removed - no external script needed -->
     <!-- Main.js kept but will handle offline gracefully -->
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
-    
+    <script src="{{ url_for('static', filename='maplibre/maplibre-gl.js') }}"></script>
     <script>
-        // ===================================================================
-        // FULLY OFFLINE-READY ANIMATION ENGINE
-        // NO EXTERNAL DEPENDENCIES - WORKS INSTANTLY OFFLINE
-        // MAP REMOVED | SCAN GPS & CONNECT BUTTONS REMOVED
-        // ===================================================================
-        
-        (function() {
-            // Check if we're online/offline and handle gracefully
-            const isOffline = !navigator.onLine;
-            
-            // ----- CANVAS SETUP -----
-            const canvas = document.getElementById('oceanCanvas');
-            if (!canvas) {
-                console.error('Canvas element not found');
-                return;
-            }
-            const ctx = canvas.getContext('2d');
-            
-            let W = 0, H = 0;
-            let animationTime = 0;
-            let animationFrameId = null;
-            
-            function resizeCanvas() {
-                const container = canvas.parentElement;
-                if (!container) return;
-                const rect = container.getBoundingClientRect();
-                const dpr = window.devicePixelRatio || 1;
-                W = canvas.width = rect.width * dpr;
-                H = canvas.height = rect.height * dpr;
-                canvas.style.width = rect.width + "px";
-                canvas.style.height = rect.height + "px";
-            }
-            
-            // Fallback if resize doesn't happen immediately
-            setTimeout(resizeCanvas, 100);
-            window.addEventListener('resize', resizeCanvas);
-            
-            /* -------------------- BUOYS -------------------- */
-            const buoyCount = 6;
-            const buoys = Array.from({length: buoyCount}).map((_, idx) => ({
-                x: Math.random(),
-                y: 0.2 + Math.random() * 0.6,
-                r: 0,
-                alpha: 0.7,
-                id: idx + 1
-            }));
-            
-            /* -------------------- SHIPS -------------------- */
-            const ships = [];
-            
-            function createShip() {
-                return {
-                    x: Math.random() * 800,
-                    y: 200 + Math.random() * 140,
-                    speed: 0.5 + Math.random() * 1.3,
-                    dir: Math.random() > 0.5 ? 1 : -1,
-                    size: 0.7 + Math.random() * 0.9,
-                    offset: Math.random() * 1000,
-                    color: `hsl(${190 + Math.random() * 30}, 70%, 55%)`
-                };
-            }
-            
-            for(let i = 0; i < 3; i++) ships.push(createShip());
-            
-            /* -------------------- PARTICLES -------------------- */
-            let particles = [];
-            const PARTICLE_COUNT = 70;
-            for(let i = 0; i < PARTICLE_COUNT; i++) {
-                particles.push({
-                    x: Math.random(),
-                    y: Math.random(),
-                    size: 1 + Math.random() * 2.5,
-                    speedX: (Math.random() - 0.5) * 0.0012,
-                    speedY: (Math.random() - 0.5) * 0.0008 + 0.0003,
-                    alpha: 0.2 + Math.random() * 0.4
+        (async function() {
+            try {
+                const res = await fetch('/static/map-style.json');
+                const style = await res.json();
+                
+                style.sources.openmaptiles.tiles = [
+                    window.location.origin + '/tiles/{z}/{x}/{y}.pbf'
+                ];
+
+                const map = new maplibregl.Map({
+                    container: 'miniMap',
+                    style: style,
+                    center: [79.8612, 6.9271],
+                    zoom: 15,
+                    interactive: false,
+                    attributionControl: false
                 });
-            }
-            
-            /* -------------------- DASHBOARD INTEGRATION -------------------- */
-            let gpsPointCount = 147;
-            const gpsCountSpan = document.getElementById('gps-count');
-            const liveCoordsSpan = document.getElementById('liveCoords');
-            const notifDiv = document.getElementById('notif');
-            const notifMsg = document.getElementById('notif-msg');
-            
-            function showNotif(message) {
-                if(notifMsg) {
-                    notifMsg.innerText = message;
-                    notifDiv.classList.add('show');
-                    setTimeout(() => notifDiv.classList.remove('show'), 3000);
-                } else {
-                    console.log("Notification:", message);
-                }
-            }
-            
-            // Simulate GPS data - works offline
-            function updateGpsStats() {
-                try {
-                    // Increment GPS points randomly
-                    if(Math.random() < 0.3) {
-                        gpsPointCount += Math.floor(Math.random() * 3) + 1;
-                        if(gpsPointCount > 1250) gpsPointCount = 280;
-                        if (gpsCountSpan) gpsCountSpan.textContent = gpsPointCount;
+
+                let userMarker, buoyMarker;
+
+                map.on('load', function() {
+                    // Check if geolocation is supported
+                    if ("geolocation" in navigator) {
+                        navigator.geolocation.watchPosition(
+                            async (position) => {
+                                const userLon = position.coords.longitude;
+                                const userLat = position.coords.latitude;
+                                
+                                // Center mini-map on tablet's location
+                                map.setCenter([userLon, userLat]);
+                                
+                                // Update tablet (user) marker
+                                if (!userMarker) {
+                                    const userEl = document.createElement('div');
+                                    userEl.style.width = '18px';
+                                    userEl.style.height = '18px';
+                                    userEl.style.background = '#0077ff';
+                                    userEl.style.borderRadius = '50%';
+                                    userEl.style.boxShadow = '0 0 15px #0077ff';
+                                    userEl.style.border = '2px solid white';
+                                    
+                                    userMarker = new maplibregl.Marker({element: userEl})
+                                        .setLngLat([userLon, userLat])
+                                        .addTo(map);
+                                } else {
+                                    userMarker.setLngLat([userLon, userLat]);
+                                }
+                                
+                                // Fetch buoys to find the nearest one
+                                try {
+                                    const devRes = await fetch('/api/devices');
+                                    const devices = await devRes.json();
+                                    
+                                    if(devices && devices.length > 0) {
+                                        // Find the closest buoy
+                                        let nearestDevice = devices[0];
+                                        let minDistance = Infinity;
+                                        
+                                        devices.forEach(d => {
+                                            const dLon = parseFloat(d.lon);
+                                            const dLat = parseFloat(d.lat);
+                                            const dist = Math.pow(dLon - userLon, 2) + Math.pow(dLat - userLat, 2);
+                                            if (dist < minDistance) {
+                                                minDistance = dist;
+                                                nearestDevice = d;
+                                            }
+                                        });
+                                        
+                                        const centerLon = parseFloat(nearestDevice.lon);
+                                        const centerLat = parseFloat(nearestDevice.lat);
+                                        
+                                        // Generate a 10km range circle using pure math
+                                        const radiusKm = 10;
+                                        const points = 64;
+                                        const coords = [];
+                                        const distanceX = radiusKm / (111.320 * Math.cos(centerLat * Math.PI / 180));
+                                        const distanceY = radiusKm / 110.574;
+                                        
+                                        for(let i = 0; i < points; i++) {
+                                            const theta = (i / points) * (2 * Math.PI);
+                                            const x = distanceX * Math.cos(theta);
+                                            const y = distanceY * Math.sin(theta);
+                                            coords.push([centerLon + x, centerLat + y]);
+                                        }
+                                        coords.push(coords[0]); // Close polygon
+                                        
+                                        const geojson = {
+                                            type: 'Feature',
+                                            geometry: {
+                                                type: 'Polygon',
+                                                coordinates: [coords]
+                                            }
+                                        };
+                                        
+                                        if (map.getSource('loraRange')) {
+                                            map.getSource('loraRange').setData(geojson);
+                                        } else {
+                                            map.addSource('loraRange', {
+                                                type: 'geojson',
+                                                data: geojson
+                                            });
+                                            
+                                            map.addLayer({
+                                                id: 'loraRangeFill',
+                                                type: 'fill',
+                                                source: 'loraRange',
+                                                paint: {
+                                                    'fill-color': '#00d4ff',
+                                                    'fill-opacity': 0.15
+                                                }
+                                            });
+                                            
+                                            map.addLayer({
+                                                id: 'loraRangeBorder',
+                                                type: 'line',
+                                                source: 'loraRange',
+                                                paint: {
+                                                    'line-color': '#00d4ff',
+                                                    'line-width': 2,
+                                                    'line-dasharray': [4, 4]
+                                                }
+                                            });
+                                        }
+                                        
+                                        // Update marker for the buoy itself
+                                        if (!buoyMarker) {
+                                            const el = document.createElement('div');
+                                            el.style.width = '16px';
+                                            el.style.height = '16px';
+                                            el.style.background = '#00e5b0';
+                                            el.style.borderRadius = '50%';
+                                            el.style.boxShadow = '0 0 12px #00e5b0';
+                                            el.style.border = '2px solid white';
+                                            
+                                            buoyMarker = new maplibregl.Marker({element: el})
+                                                .setLngLat([centerLon, centerLat])
+                                                .addTo(map);
+                                        } else {
+                                            buoyMarker.setLngLat([centerLon, centerLat]);
+                                        }
+                                    }
+                                } catch (e) {
+                                    console.error("Failed to fetch devices for nearest buoy:", e);
+                                }
+                            },
+                            (err) => { console.warn('Geolocation error:', err); },
+                            { enableHighAccuracy: true, maximumAge: 2000, timeout: 5000 }
+                        );
+                    } else {
+                        console.warn("Geolocation is not supported by this browser.");
                     }
-                    
-                    // Generate realistic Colombo coordinates
-                    const baseLat = 6.9271;
-                    const baseLon = 79.8612;
-                    const latOffset = Math.sin(animationTime * 0.2) * 0.008;
-                    const lonOffset = Math.cos(animationTime * 0.17) * 0.006;
-                    const lat = (baseLat + latOffset).toFixed(4);
-                    const lon = (baseLon + lonOffset).toFixed(4);
-                    if (liveCoordsSpan) {
-                        liveCoordsSpan.innerHTML = `📍 ${lat}°N, ${lon}°E  •  ${Math.floor(10 + Math.sin(animationTime) * 5)} knots`;
-                    }
-                } catch(e) {
-                    console.log('GPS update error:', e);
-                }
-            }
-            
-            /* -------------------- DRAW LOOP -------------------- */
-            function drawOcean() {
-                try {
-                    if(!ctx) {
-                        requestAnimationFrame(drawOcean);
-                        return;
-                    }
-                    if(W === 0 || H === 0) {
-                        resizeCanvas();
-                        requestAnimationFrame(drawOcean);
-                        return;
-                    }
-                    
-                    ctx.clearRect(0, 0, W, H);
-                    
-                    // Deep ocean background
-                    const grad = ctx.createLinearGradient(0, 0, 0, H);
-                    grad.addColorStop(0, '#021a2a');
-                    grad.addColorStop(1, '#030c14');
-                    ctx.fillStyle = grad;
-                    ctx.fillRect(0, 0, W, H);
-                    
-                    /* -------- WATER WAVES -------- */
-                    for(let l = 0; l < 5; l++) {
-                        const base = H * (0.2 + l * 0.15);
-                        const amp = 6 + l * 3;
-                        
-                        ctx.beginPath();
-                        for(let x = 0; x <= W; x += 5) {
-                            const y = base +
-                                Math.sin(x * 0.01 + animationTime * (0.3 + l * 0.2)) * amp +
-                                Math.sin(x * 0.02 - animationTime * 0.2) * amp * 0.5;
-                            x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-                        }
-                        ctx.lineTo(W, H);
-                        ctx.lineTo(0, H);
-                        ctx.fillStyle = `rgba(0, 120, 220, ${0.03 + l * 0.02})`;
-                        ctx.fill();
-                    }
-                    
-                    /* -------- MARINE PARTICLES -------- */
-                    particles.forEach(p => {
-                        p.x += p.speedX;
-                        p.y += p.speedY;
-                        if(p.x < 0) p.x = 1;
-                        if(p.x > 1) p.x = 0;
-                        if(p.y < 0) p.y = 1;
-                        if(p.y > 1) p.y = 0;
-                        
-                        const px = p.x * W;
-                        const py = p.y * H;
-                        ctx.beginPath();
-                        ctx.arc(px, py, p.size, 0, Math.PI * 2);
-                        ctx.fillStyle = `rgba(100, 200, 255, ${p.alpha * 0.4})`;
-                        ctx.fill();
-                    });
-                    
-                    /* -------- BUOYS -------- */
-                    buoys.forEach((b) => {
-                        const bx = b.x * W;
-                        const by = b.y * H;
-                        
-                        b.r += 0.65;
-                        b.alpha -= 0.012;
-                        if(b.r > 42) {
-                            b.r = 0;
-                            b.alpha = 0.7;
-                        }
-                        
-                        ctx.beginPath();
-                        ctx.arc(bx, by, b.r, 0, Math.PI * 2);
-                        ctx.strokeStyle = `rgba(0, 200, 255, ${b.alpha})`;
-                        ctx.stroke();
-                        
-                        ctx.beginPath();
-                        ctx.arc(bx, by, 5, 0, Math.PI * 2);
-                        ctx.fillStyle = "#00c8ff";
-                        ctx.fill();
-                        
-                        ctx.beginPath();
-                        ctx.arc(bx, by, 2.5, 0, Math.PI * 2);
-                        ctx.fillStyle = "#ffffff";
-                        ctx.fill();
-                        
-                        ctx.fillStyle = "#aaffff";
-                        ctx.font = "9px monospace";
-                        ctx.fillText(`B-${b.id}`, bx + 7, by - 6);
-                    });
-                    
-                    /* -------- SHIPS -------- */
-                    ships.forEach(ship => {
-                        ship.x += ship.speed * ship.dir;
-                        
-                        if(ship.dir === 1 && ship.x > W + 80) ship.x = -80;
-                        if(ship.dir === -1 && ship.x < -80) ship.x = W + 80;
-                        
-                        const bob = Math.sin(animationTime * 1.5 + ship.offset) * 4;
-                        
-                        ctx.save();
-                        ctx.translate(ship.x, ship.y + bob);
-                        ctx.scale(ship.size, ship.size);
-                        ctx.rotate(Math.sin(animationTime + ship.offset) * 0.04);
-                        
-                        ctx.beginPath();
-                        ctx.moveTo(-25, 0);
-                        ctx.lineTo(25, 0);
-                        ctx.lineTo(18, 10);
-                        ctx.lineTo(-18, 10);
-                        ctx.closePath();
-                        ctx.fillStyle = ship.color;
-                        ctx.fill();
-                        
-                        ctx.fillStyle = "#d8eaf5";
-                        ctx.fillRect(-8, -15, 16, 15);
-                        
-                        ctx.fillStyle = "#0088cc";
-                        ctx.fillRect(-5, -12, 3, 3);
-                        ctx.fillRect(0, -12, 3, 3);
-                        
-                        ctx.restore();
-                        
-                        ctx.beginPath();
-                        for(let i = 0; i < 35; i++) {
-                            const wx = ship.x - i * 3 * ship.dir;
-                            const wy = ship.y + 10 + Math.sin(i * 0.3 + animationTime) * 2;
-                            if(i === 0) ctx.moveTo(wx, wy);
-                            else ctx.lineTo(wx, wy);
-                        }
-                        ctx.strokeStyle = "rgba(255, 255, 245, 0.2)";
-                        ctx.lineWidth = 1.5;
-                        ctx.stroke();
-                    });
-                    
-                    /* -------- OCEAN GLINTS -------- */
-                    for(let i = 0; i < 30; i++) {
-                        const fx = (Math.sin(animationTime * 0.8 + i) * 0.6 + 0.5) * W;
-                        const fy = H * (0.25 + Math.sin(animationTime * 1.2 + i) * 0.08);
-                        ctx.beginPath();
-                        ctx.arc(fx, fy, 1.2, 0, Math.PI * 2);
-                        ctx.fillStyle = `rgba(255, 245, 200, 0.35)`;
-                        ctx.fill();
-                    }
-                    
-                    updateGpsStats();
-                    animationTime += 0.016;
-                    animationFrameId = requestAnimationFrame(drawOcean);
-                } catch(e) {
-                    console.log('Draw error:', e);
-                    animationFrameId = requestAnimationFrame(drawOcean);
-                }
-            }
-            
-            // Initialize
-            function initAnimation() {
-                resizeCanvas();
-                if (gpsCountSpan) gpsCountSpan.textContent = gpsPointCount;
-                drawOcean();
-            }
-            
-            function handleResizeAndReposition() {
-                resizeCanvas();
-                if (ships.length && W > 0) {
-                    ships.forEach(ship => {
-                        if(ship.x > W) ship.x = W * 0.6;
-                        if(ship.x < 0) ship.x = W * 0.4;
-                        ship.y = H * (0.35 + Math.random() * 0.4);
-                    });
-                }
-            }
-            
-            window.removeEventListener('resize', resizeCanvas);
-            window.addEventListener('resize', handleResizeAndReposition);
-            
-            // Start when DOM is ready
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', initAnimation);
-            } else {
-                initAnimation();
-            }
-            
-            // Legacy functions
-            window.scanGPS = function() {
-                showNotif('GPS simulation active • Data flowing');
-            };
-            
-            window.connectToDevice = function() {
-                showNotif('Marine data stream active');
-            };
-            
-            // Simulate data refresh
-            setInterval(() => {
-                if(Math.random() < 0.15) {
-                    const newPointCount = Math.floor(Math.random() * 12);
-                    gpsPointCount += newPointCount;
-                    if(gpsPointCount > 1350) gpsPointCount = 300;
-                    if (gpsCountSpan) gpsCountSpan.textContent = gpsPointCount;
-                    if(newPointCount > 5) {
-                        showNotif(`📡 ${newPointCount} new GPS points acquired`);
-                    }
-                }
-            }, 5500);
-            
-            // Show offline status if needed
-            if (isOffline) {
-                setTimeout(() => showNotif('📡 Offline mode • Simulation active'), 1000);
+                });
+            } catch (err) {
+                console.error("Mini map load failed:", err);
             }
         })();
         

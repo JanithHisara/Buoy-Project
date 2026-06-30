@@ -864,10 +864,7 @@ def init_db():
         if cursor.fetchone()[0] == 0:
             users_db = [
                 {"name": "Super Admin", "email": "superadmin@oceannav.lk", "password": "password", "role": "super_admin", "status": "Active", "last_active": "Now", "avatar": "SA", "avatar_bg": "linear-gradient(135deg,#7b2cbf,#3c096c)"},
-                {"name": "Admin Kumar", "email": "admin@oceannav.lk", "password": "password", "role": "admin", "status": "Active", "last_active": "Now", "avatar": "AK", "avatar_bg": "linear-gradient(135deg,#00d4ff,#0077ff)"},
-                {"name": "Nimal Perera", "email": "nimal@oceannav.lk", "password": "password", "role": "user", "status": "Active", "last_active": "5m ago", "avatar": "NP", "avatar_bg": "linear-gradient(135deg,#00e5b0,#0077ff)"},
-                {"name": "Sunil Ranaweera", "email": "sunil@oceannav.lk", "password": "password", "role": "user", "status": "Offline", "last_active": "2h ago", "avatar": "SR", "avatar_bg": "linear-gradient(135deg,#ff6b6b,#ff4757)"},
-                {"name": "Kumari", "email": "kumari@oceannav.lk", "password": "password", "role": "user", "status": "Away", "last_active": "45m ago", "avatar": "KF", "avatar_bg": "linear-gradient(135deg,#ffb830,#ff6b6b)"}
+                {"name": "Admin Kumar", "email": "admin@oceannav.lk", "password": "password", "role": "admin", "status": "Active", "last_active": "Now", "avatar": "AK", "avatar_bg": "linear-gradient(135deg,#00d4ff,#0077ff)"}
             ]
             conn.executemany('''
                 INSERT INTO users (name, email, password, role, status, last_active, avatar, avatar_bg)
@@ -1099,6 +1096,29 @@ def api_delete_user(email):
     conn.commit()
     conn.close()
     return jsonify({'success': True, 'message': 'User terminated successfully'})
+
+# -------------------- STATS API --------------------
+@app.route('/api/stats', methods=['GET'])
+def get_stats():
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    cursor.execute("SELECT COUNT(*) FROM devices")
+    total_buoys = cursor.fetchone()[0]
+    
+    cursor.execute("SELECT COUNT(*) FROM devices WHERE status = 'online'")
+    active_buoys = cursor.fetchone()[0]
+    
+    cursor.execute("SELECT COUNT(*) FROM devices WHERE status IN ('offline', 'warning')")
+    signal_lost = cursor.fetchone()[0]
+    
+    conn.close()
+    
+    return jsonify({
+        'total_buoys': total_buoys,
+        'active_buoys': active_buoys,
+        'signal_lost': signal_lost
+    })
 
 # -------------------- LIST PORTS --------------------
 @app.route('/ports', methods=['GET'])
