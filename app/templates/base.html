@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OceanNav — {% block title %}Dashboard{% endblock %}</title>
+    <!-- Offline Fonts -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='fonts/inter/index.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='fonts/outfit/index.css') }}">
+    <!-- Offline Phosphor Icons -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='phosphor-icons/regular/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='phosphor-icons/bold/style.css') }}">
+    <!-- Map & Base CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='maplibre/maplibre-gl.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}?v=2">
+    {% block css %}{% endblock %}
+</head>
+<body>
+    <div class="toast-container" id="toast-container"></div>
+
+    <div class="app-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-brand">
+                <div class="brand-icon"><i class="ph-bold ph-waves"></i></div>
+                <span class="brand-name">OceanNav</span>
+            </div>
+            <button class="sidebar-toggle" id="sidebar-toggle" title="Toggle sidebar">‹</button>
+
+            <nav class="sidebar-nav">
+                <div class="nav-label">Navigation</div>
+                <a href="/dashboard" class="nav-item {% if active_page == 'dashboard' %}active{% endif %}">
+                    <span class="nav-icon"><i class="ph-bold ph-chart-bar"></i></span>
+                    <span>Dashboard</span>
+                </a>
+                <a href="/map" class="nav-item {% if active_page == 'map' %}active{% endif %}">
+                    <span class="nav-icon"><i class="ph-bold ph-map-trifold"></i></span>
+                    <span>Live Map</span>
+                    <span class="nav-badge live">LIVE</span>
+                </a>
+                <a href="/devices" class="nav-item {% if active_page == 'devices' %}active{% endif %}">
+                    <span class="nav-icon"><i class="ph-bold ph-broadcast"></i></span>
+                    <span>Device Setup</span>
+                    <span class="nav-badge" id="device-count-badge">0</span>
+                </a>
+                {% if user.role in ['admin', 'super_admin'] %}
+                <a href="/users" class="nav-item {% if active_page == 'users' %}active{% endif %}">
+                    <span class="nav-icon"><i class="ph-bold ph-users"></i></span>
+                    <span>Users</span>
+                </a>
+                {% endif %}
+                <a href="/settings" class="nav-item {% if active_page == 'settings' %}active{% endif %}">
+                    <span class="nav-icon"><i class="ph-bold ph-gear"></i></span>
+                    <span>Settings</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <div class="user-avatar" style="background: {{ user.avatar_bg }}">
+                        {{ user.avatar }}
+                    </div>
+                    <div class="user-details">
+                        <div class="user-name">{{ user.name }}</div>
+                        <div class="user-role">{{ user.role | replace('_', ' ') }}</div>
+                    </div>
+                </div>
+                <div class="sidebar-actions">
+                    <button onclick="toggleTheme()" title="Toggle theme">
+                        <span><i class="ph-bold ph-palette"></i></span> Theme
+                    </button>
+                    <button onclick="logout()" title="Logout">
+                        <span><i class="ph-bold ph-sign-out"></i></span> Logout
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <header class="page-header">
+                <div class="page-title">
+                    <h1>{% block page_title %}Dashboard{% endblock %}</h1>
+                    <span class="subtitle">{% block page_subtitle %}Overview{% endblock %}</span>
+                </div>
+                <div class="header-actions">
+                    <div class="status-badge" id="system-status">
+                        <span class="dot"></span>
+                        <span>System Online</span>
+                    </div>
+                    <button class="theme-toggle" onclick="toggleTheme()">
+                        <span id="theme-label">Dark</span>
+                    </button>
+                </div>
+            </header>
+
+            <div class="page-body">
+                {% block content %}{% endblock %}
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='maplibre/maplibre-gl.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}?v=2"></script>
+    {% block js %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OceanNav — Settings</title>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div id="app">
+        {% include 'sidebar.html' %}
+        <div id="main">
+            <div class="topbar">
+                <div class="topbar-title" id="topbar-title">
+                    Settings <span class="topbar-subtitle">/ System configuration</span>
+                </div>
+                <div class="status-pill">
+                    <div class="status-dot"></div>
+                    System Online
+                </div>
+                <button class="theme-toggle" onclick="toggleTheme()">
+                    <span id="theme-label">Dark</span>
+                    <div class="toggle-switch"></div>
+                </button>
+            </div>
+            
+            <div id="content-area">
+                <div class="settings-grid">
+                    <div class="settings-card">
+                        <div class="settings-card-title">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2">
+                                <path d="M18 8h1a4 4 0 0 1 0 8h-1"/>
+                                <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/>
+                                <line x1="6" y1="1" x2="6" y2="4"/>
+                                <line x1="10" y1="1" x2="10" y2="4"/>
+                                <line x1="14" y1="1" x2="14" y2="4"/>
+                            </svg>
+                            Device Settings
+                        </div>
+                        <div class="settings-row">
+                            <div>
+                                <div class="settings-label">Auto-scan GPS</div>
+                                <div class="settings-sub">Scan every 2 seconds</div>
+                            </div>
+                            <div class="toggle-small on" onclick="this.classList.toggle('on')"></div>
+                        </div>
+                        <div class="settings-row">
+                            <div>
+                                <div class="settings-label">Auto-connect on startup</div>
+                                <div class="settings-sub">Connect to last used port</div>
+                            </div>
+                            <div class="toggle-small on" onclick="this.classList.toggle('on')"></div>
+                        </div>
+                        <div class="settings-row">
+                            <div>
+                                <div class="settings-label">Baud Rate</div>
+                                <div class="settings-sub">Serial communication speed</div>
+                            </div>
+                            <input class="settings-input" value="115200" type="number">
+                        </div>
+                        <div class="settings-row">
+                            <div>
+                                <div class="settings-label">GPS Poll Interval</div>
+                                <div class="settings-sub">Milliseconds between polls</div>
+                            </div>
+                            <input class="settings-input" value="2000" type="number">
+                        </div>
+                        <button class="save-btn" onclick="showNotif('Device settings saved ✓')">Save Changes</button>
+                    </div>
+                    
+                    <div class="settings-card">
+                        <div class="settings-card-title">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2">
+                                <circle cx="12" cy="12" r="3"/>
+                                <path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
+                            </svg>
+                            Map Settings
+                        </div>
+                        <div class="settings-row">
+                            <div>
+                                <div class="settings-label">Show buoy trails</div>
+                                <div class="settings-sub">Display path history on map</div>
+                            </div>
+                            <div class="toggle-small on" onclick="this.classList.toggle('on')"></div>
+                        </div>
+                        <div class="settings-row">
+                            <div>
+                                <div class="settings-label">Auto-center on GPS update</div>
+                                <div class="settings-sub">Follow active buoy</div>
+                            </div>
+                            <div class="toggle-small" onclick="this.classList.toggle('on')"></div>
+                        </div>
+                        <div class="settings-row">
+                            <div>
+                                <div class="settings-label">Default Zoom Level</div>
+                            </div>
+                            <input class="settings-input" value="13" type="number">
+                        </div>
+                        <div class="settings-row">
+                            <div>
+                                <div class="settings-label">Offline tiles cache</div>
+                                <div class="settings-sub">Cache for offline use</div>
+                            </div>
+                            <div class="toggle-small" onclick="this.classList.toggle('on')"></div>
+                        </div>
+                        <button class="save-btn" onclick="showNotif('Map settings saved ✓')">Save Changes</button>
+                    </div>
+                    
+                    <div class="settings-card">
+                        <div class="settings-card-title">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2">
+                                <path d="M22 17H2a3 3 0 0 0 3-3V9a7 7 0 0 1 14 0v5a3 3 0 0 0 3 3zm-8.27 4a2 2 0 0 1-3.46 0"/>
+                            </svg>
+                            Alert Settings
+                        </div>
+                        <div class="settings-row">
+                            <div>
+                                <div class="settings-label">Low battery alert</div>
+                                <div class="settings-sub">Alert when below 20%</div>
+                            </div>
+                            <div class="toggle-small on" onclick="this.classList.toggle('on')"></div>
+                        </div>
+                        <div class="settings-row">
+                            <div>
+                                <div class="settings-label">Offline buoy alert</div>
+                                <div class="settings-sub">Alert when buoy goes offline</div>
+                            </div>
+                            <div class="toggle-small on" onclick="this.classList.toggle('on')"></div>
+                        </div>
+                        <div class="settings-row">
+                            <div>
+                                <div class="settings-label">GPS drift alert</div>
+                                <div class="settings-sub">Alert on position drift > 50m</div>
+                            </div>
+                            <div class="toggle-small" onclick="this.classList.toggle('on')"></div>
+                        </div>
+                        <button class="save-btn" onclick="showNotif('Alert settings saved ✓')">Save Changes</button>
+                    </div>
+                    
+                    <div class="settings-card">
+                        <div class="settings-card-title">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2">
+                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                            </svg>
+                            Security
+                        </div>
+                        <div class="settings-row">
+                            <div>
+                                <div class="settings-label">Two-factor authentication</div>
+                            </div>
+                            <div class="toggle-small" onclick="this.classList.toggle('on')"></div>
+                        </div>
+                        <div class="settings-row">
+                            <div>
+                                <div class="settings-label">Session timeout</div>
+                                <div class="settings-sub">Auto-logout after inactivity</div>
+                            </div>
+                            <input class="settings-input" value="30 min" type="text">
+                        </div>
+                        <div class="settings-row">
+                            <div>
+                                <div class="settings-label">API access logs</div>
+                            </div>
+                            <div class="toggle-small on" onclick="this.classList.toggle('on')"></div>
+                        </div>
+                        <button class="save-btn" onclick="showNotif('Security settings saved ✓')">Save Changes</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="notif" id="notif">
+        <span>💡</span>
+        <span id="notif-msg"></span>
+    </div>
+    
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

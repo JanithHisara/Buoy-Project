@@ -1,0 +1,118 @@
+/* ═══════════════════════════════════════════════════
+   OceanNav — Users Page
+   ═══════════════════════════════════════════════════ */
+
+.users-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    flex: 1;
+}
+
+.users-table-card {
+    flex: 1;
+    background: var(--bg-card);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--border-color);
+    border-top: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+}
+
+.users-table-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+}
+
+.users-table-header h2 {
+    font-family: var(--font-heading);
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+}
+
+.users-table-body {
+    flex: 1;
+    overflow-y: auto;
+}
+
+/* Table */
+.users-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.users-table th {
+    text-align: left;
+    padding: 10px 16px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border-color);
+    position: sticky;
+    top: 0;
+    background: var(--bg-card);
+    z-index: 1;
+}
+
+.users-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 13px;
+}
+
+.users-table tr:hover td {
+    background: var(--bg-card-hover);
+}
+
+.user-cell {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.user-cell .user-avatar {
+    width: 32px;
+    height: 32px;
+    font-size: 11px;
+}
+
+.user-cell .user-name {
+    font-weight: 600;
+}
+
+.role-select {
+    padding: 4px 8px;
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.status-active {
+    color: var(--accent-green);
+    font-weight: 600;
+    font-size: 12px;
+}
+
+.status-offline {
+    color: var(--text-muted);
+    font-size: 12px;
+}
+
+.user-actions {
+    display: flex;
+    gap: 6px;
+}
