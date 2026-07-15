@@ -19,4 +19,8 @@ if __name__ == '__main__':
     print(f"  Press CTRL+C to stop")
     print("=" * 50)
     
+    # Start checking for updates in the background
+    from app.services.updater import start_update_checker
+    start_update_checker()
+    
     app.run(debug=True, host='0.0.0.0', port=5000)

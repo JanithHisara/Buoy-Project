@@ -3,6 +3,7 @@ Settings page route and APIs.
 """
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
 from app.database import get_db
+from app.services.updater import update_status, install_update_and_restart
 
 settings_bp = Blueprint('settings', __name__)
 
@@ -12,6 +13,26 @@ def settings_page():
     if 'user' not in session:
         return redirect(url_for('auth.index'))
     return render_template('settings.html', user=session['user'])
+
+
+# ── Update API Endpoints ──
+
+@settings_bp.route('/api/update_status', methods=['GET'])
+def get_update_status():
+    from app.version import __version__
+    
+    # Return a copy of the status plus the current version
+    status_copy = update_status.copy()
+    status_copy['current_version'] = __version__
+    return jsonify(status_copy)
+
+
+@settings_bp.route('/api/install_update', methods=['POST'])
+def trigger_install_update():
+    if update_status.get('ready_to_install'):
+        install_update_and_restart()
+        return jsonify({'status': 'ok', 'message': 'Installing update and restarting...'})
+    return jsonify({'status': 'error', 'message': 'Update not ready'}), 400
 
 
 # ── API: Get all settings ──

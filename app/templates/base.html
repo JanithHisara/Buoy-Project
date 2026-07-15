@@ -88,6 +88,14 @@
                         <span class="dot"></span>
                         <span>System Online</span>
                     </div>
+                    <div class="status-badge" id="update-badge" style="display: none; background: rgba(59,130,246,0.15); border: 1px solid rgba(59,130,246,0.3);">
+                        <span class="dot" style="background: #3b82f6; animation: pulse-dot 2s infinite;"></span>
+                        <span id="update-text" style="color: #3b82f6;">Checking...</span>
+                        <div id="update-actions" style="display: none; margin-left: 10px; gap: 8px;">
+                            <button onclick="installUpdate()" style="background: #3b82f6; border: none; padding: 4px 10px; border-radius: 4px; color: white; cursor: pointer; font-size: 0.8rem; font-weight: 600;">Restart Now</button>
+                            <button onclick="hideUpdate()" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 4px; color: var(--text-primary); cursor: pointer; font-size: 0.8rem;">Later</button>
+                        </div>
+                    </div>
                     <button class="theme-toggle" onclick="toggleTheme()">
                         <span id="theme-label">Dark</span>
                     </button>

@@ -187,3 +187,65 @@ function createCircleGeoJSON(center, radiusKm, points = 64) {
 
 // ── Global Live Location Poller ──
 
+/* ---------------------------------------------------
+   Auto Updater Logic
+   --------------------------------------------------- */
+
+let updateDismissed = false;
+
+function hideUpdate() {
+    updateDismissed = true;
+    document.getElementById('update-badge').style.display = 'none';
+}
+
+async function installUpdate() {
+    const btn = document.querySelector('#update-actions button');
+    btn.innerHTML = 'Installing...';
+    btn.disabled = true;
+    
+    try {
+        await fetchJSON('/api/install_update', { method: 'POST' });
+        document.getElementById('update-text').innerText = 'Updating... Please wait.';
+        document.getElementById('update-actions').style.display = 'none';
+        
+        setTimeout(pingServer, 3000);
+    } catch(e) {
+        btn.innerHTML = 'Error!';
+    }
+}
+
+async function pingServer() {
+    try {
+        await fetch('/');
+        window.location.reload();
+    } catch(e) {
+        setTimeout(pingServer, 1000);
+    }
+}
+
+async function checkUpdates() {
+    if (updateDismissed) return;
+    
+    try {
+        const status = await fetchJSON('/api/update_status');
+        const badge = document.getElementById('update-badge');
+        const text = document.getElementById('update-text');
+        const actions = document.getElementById('update-actions');
+        
+        if (status.ready_to_install) {
+            badge.style.display = 'flex';
+            text.innerText = "Update " + status.latest_version + " is ready!";
+            actions.style.display = 'flex';
+        } else if (status.downloading) {
+            badge.style.display = 'flex';
+            text.innerText = "Downloading update: " + status.download_progress + "%";
+            actions.style.display = 'none';
+        } else {
+            badge.style.display = 'none';
+        }
+    } catch(e) {
+    }
+}
+
+setInterval(checkUpdates, 5000);
+setTimeout(checkUpdates, 1000);
