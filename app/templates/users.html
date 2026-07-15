@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% set active_page = 'users' %}
+
+{% block title %}Users{% endblock %}
+{% block page_title %}Users{% endblock %}
+{% block page_subtitle %}Access management{% endblock %}
+
+{% block css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/users.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="users-layout">
+    <div class="users-table-card">
+        <div class="users-table-header">
+            <h2>System Users</h2>
+            {% if user.role == 'super_admin' %}
+            <button class="btn btn-primary btn-sm" onclick="showAddUserModal()">+ Add User</button>
+            {% endif %}
+        </div>
+        <div class="users-table-body">
+            <table class="users-table">
+                <thead>
+                    <tr>
+                        <th>User</th>
+                        <th>Email</th>
+                        <th>Role</th>
+                        <th>Status</th>
+                        <th>Last Active</th>
+                        {% if user.role == 'super_admin' %}
+                        <th>Actions</th>
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody id="users-tbody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Add User Modal -->
+<div class="modal-overlay" id="add-user-modal">
+    <div class="modal">
+        <div class="modal-title">Add New User</div>
+        <div class="form-group" style="margin-bottom:12px">
+            <label class="form-label">Full Name</label>
+            <input type="text" class="form-input" id="new-user-name" placeholder="Enter full name" required>
+        </div>
+        <div class="form-group" style="margin-bottom:12px">
+            <label class="form-label">Email</label>
+            <input type="email" class="form-input" id="new-user-email" placeholder="Enter email" required>
+        </div>
+        <div class="form-group" style="margin-bottom:12px">
+            <label class="form-label">Password</label>
+            <input type="password" class="form-input" id="new-user-password" placeholder="Min 6 characters" required>
+        </div>
+        <div class="form-group" style="margin-bottom:12px">
+            <label class="form-label">Role</label>
+            <select class="form-select" id="new-user-role">
+                <option value="user">User</option>
+                <option value="admin">Admin</option>
+            </select>
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-outline" onclick="closeAddUserModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="addUser()">Add User</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block js %}
+<script>const CURRENT_USER_ROLE = '{{ user.role }}';</script>
+<script src="{{ url_for('static', filename='js/users.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,165 @@
+{
+  "version": 8,
+  "name": "OceanNav Light Vector",
+  "sources": {
+    "openmaptiles": {
+      "type": "vector",
+      "tiles": [
+        "/tiles/{z}/{x}/{y}.pbf"
+      ],
+      "minzoom": 0,
+      "maxzoom": 14
+    }
+  },
+  "layers": [
+    {
+      "id": "background",
+      "type": "background",
+      "paint": {
+        "background-color": "#f5f4f0"
+      }
+    },
+    {
+      "id": "landcover-wood",
+      "type": "fill",
+      "source": "openmaptiles",
+      "source-layer": "landcover",
+      "filter": ["==", "class", "wood"],
+      "paint": {
+        "fill-color": "#dceddb"
+      }
+    },
+    {
+      "id": "landcover-grass",
+      "type": "fill",
+      "source": "openmaptiles",
+      "source-layer": "landcover",
+      "filter": ["in", "class", "grass", "scrub", "crop"],
+      "paint": {
+        "fill-color": "#e3f0e0"
+      }
+    },
+    {
+      "id": "landcover-sand",
+      "type": "fill",
+      "source": "openmaptiles",
+      "source-layer": "landcover",
+      "filter": ["==", "class", "sand"],
+      "paint": {
+        "fill-color": "#f1ebd3"
+      }
+    },
+    {
+      "id": "landuse-residential",
+      "type": "fill",
+      "source": "openmaptiles",
+      "source-layer": "landuse",
+      "filter": ["==", "class", "residential"],
+      "paint": {
+        "fill-color": "#eae8e2"
+      }
+    },
+    {
+      "id": "landuse-commercial",
+      "type": "fill",
+      "source": "openmaptiles",
+      "source-layer": "landuse",
+      "filter": ["in", "class", "commercial", "industrial", "retail"],
+      "paint": {
+        "fill-color": "#ebedf2"
+      }
+    },
+    {
+      "id": "water",
+      "type": "fill",
+      "source": "openmaptiles",
+      "source-layer": "water",
+      "paint": {
+        "fill-color": "#c4daf2"
+      }
+    },
+    {
+      "id": "waterway",
+      "type": "line",
+      "source": "openmaptiles",
+      "source-layer": "waterway",
+      "paint": {
+        "line-color": "#a8cbeb",
+        "line-width": {
+          "base": 1.2,
+          "stops": [
+            [8, 0.5],
+            [12, 1],
+            [15, 2.5]
+          ]
+        }
+      }
+    },
+    {
+      "id": "building",
+      "type": "fill",
+      "source": "openmaptiles",
+      "source-layer": "building",
+      "paint": {
+        "fill-color": "#ebeae8",
+        "fill-outline-color": "#d6d5d2"
+      }
+    },
+    {
+      "id": "roads-casing",
+      "type": "line",
+      "source": "openmaptiles",
+      "source-layer": "transportation",
+      "filter": ["in", "class", "motorway", "trunk", "primary", "secondary", "tertiary"],
+      "layout": {
+        "line-cap": "round",
+        "line-join": "round"
+      },
+      "paint": {
+        "line-color": "#e0deda",
+        "line-width": {
+          "base": 1.2,
+          "stops": [
+            [6, 1.5],
+            [10, 2.5],
+            [14, 5],
+            [18, 14]
+          ]
+        }
+      }
+    },
+    {
+      "id": "roads",
+      "type": "line",
+      "source": "openmaptiles",
+      "source-layer": "transportation",
+      "layout": {
+        "line-cap": "round",
+        "line-join": "round"
+      },
+      "paint": {
+        "line-color": "#ffffff",
+        "line-width": {
+          "base": 1.2,
+          "stops": [
+            [6, 0.5],
+            [10, 1.2],
+            [14, 3],
+            [18, 10]
+          ]
+        }
+      }
+    },
+    {
+      "id": "boundary",
+      "type": "line",
+      "source": "openmaptiles",
+      "source-layer": "boundary",
+      "paint": {
+        "line-color": "#cccccc",
+        "line-width": 0.8,
+        "line-dasharray": [4, 4]
+      }
+    }
+  ]
+}
