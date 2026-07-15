@@ -188,7 +188,8 @@ function toggleHighlight(buoyId) {
         const marker = buoyMarkers[buoyId];
         if (marker) {
             marker.getElement().classList.remove('pulse');
-            marker.getElement().style.boxShadow = '';
+            marker.getElement().style.removeProperty('--pulse-color');
+            marker.getElement().style.removeProperty('--pulse-color-transparent');
             marker.getElement().style.backgroundColor = '';
             const popup = buoyPopups[buoyId];
             if (popup && popup.isOpen()) popup.remove();
@@ -205,7 +206,8 @@ function toggleHighlight(buoyId) {
             const prevMarker = buoyMarkers[highlightedBuoy];
             if (prevMarker) {
                 prevMarker.getElement().classList.remove('pulse');
-                prevMarker.getElement().style.boxShadow = '';
+                prevMarker.getElement().style.removeProperty('--pulse-color');
+                prevMarker.getElement().style.removeProperty('--pulse-color-transparent');
                 prevMarker.getElement().style.backgroundColor = '';
                 const prevPopup = buoyPopups[highlightedBuoy];
                 if (prevPopup && prevPopup.isOpen()) prevPopup.remove();
@@ -224,8 +226,13 @@ function toggleHighlight(buoyId) {
         const marker = buoyMarkers[buoyId];
         if (marker) {
             marker.getElement().classList.add('pulse');
-            marker.getElement().style.boxShadow = `0 0 20px 8px ${device.led_color || '#0000ff'}80`;
-            marker.getElement().style.backgroundColor = device.led_color || '#0000ff';
+            
+            // Set CSS variables for the pulse animation to use
+            const color = device.led_color || '#0000ff';
+            marker.getElement().style.setProperty('--pulse-color', `${color}99`);
+            marker.getElement().style.setProperty('--pulse-color-transparent', `${color}00`);
+            
+            marker.getElement().style.backgroundColor = color;
             const popup = buoyPopups[buoyId];
             if (popup && !popup.isOpen()) {
                 popup.setLngLat([device.lon, device.lat]).addTo(liveMap);

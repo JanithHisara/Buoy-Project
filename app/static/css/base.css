@@ -837,8 +837,9 @@ input, select, textarea { font-family: inherit; outline: none; }
     border-radius: 50%;
     border: 3px solid white;
     cursor: pointer;
-    transition: background-color 0.3s ease, box-shadow 0.3s ease;
+    transition: background-color 0.3s ease;
     box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    will-change: transform;
 }
 
 .buoy-marker.green { background: #00e5a0; }
@@ -847,12 +848,13 @@ input, select, textarea { font-family: inherit; outline: none; }
 
 .buoy-marker.pulse {
     animation: marker-pulse 1.5s infinite;
+    z-index: 1000;
 }
 
 @keyframes marker-pulse {
-    0% { box-shadow: 0 0 0 0 rgba(0,212,255,0.4); }
-    70% { box-shadow: 0 0 0 15px rgba(0,212,255,0); }
-    100% { box-shadow: 0 0 0 0 rgba(0,212,255,0); }
+    0% { box-shadow: 0 0 0 0 var(--pulse-color, rgba(0,212,255,0.4)); }
+    70% { box-shadow: 0 0 0 15px var(--pulse-color-transparent, rgba(0,212,255,0)); }
+    100% { box-shadow: 0 0 0 0 var(--pulse-color-transparent, rgba(0,212,255,0)); }
 }
 
 /* User location marker */
