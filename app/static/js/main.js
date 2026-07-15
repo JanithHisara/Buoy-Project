@@ -132,10 +132,6 @@ if (document.getElementById('total-buoys') || document.getElementById('device-co
 
 // ── Create MapLibre Map ──
 async function createMap(containerId, options = {}) {
-    if (!maplibregl.supported()) {
-        alert('Your browser does not support WebGL graphics, which is required to render the map.');
-        return null;
-    }
     let style = null;
     try {
         const res = await fetch('/static/map-style.json');
