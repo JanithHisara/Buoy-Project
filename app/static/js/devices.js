@@ -110,7 +110,11 @@ async function checkConnectionStatus() {
 // ── Load devices list ──
 async function loadDevicesList() {
     try {
-        const devices = await fetchJSON('/api/devices');
+        const [devices, updateStatus] = await Promise.all([
+            fetchJSON('/api/devices'),
+            fetchJSON('/api/update_status')
+        ]);
+        
         const container = document.getElementById('devices-list');
 
         // Update badge
@@ -122,7 +126,9 @@ async function loadDevicesList() {
             return;
         }
 
-        container.innerHTML = devices.map(d => `
+        container.innerHTML = devices.map(d => {
+            const hasUpdate = updateStatus.buoy_version && d.firmware_version !== updateStatus.buoy_version;
+            return `
             <div class="device-card ${d.is_bound === 0 ? 'unbound' : ''}">
                 <div class="device-icon"><i class="ph-bold ph-broadcast"></i></div>
                 <div class="device-info">
@@ -134,11 +140,13 @@ async function loadDevicesList() {
                     <div class="device-name">${d.name || 'Unnamed'}</div>
                     <div class="device-meta">
                         <span><i class="ph-bold ph-map-pin"></i> ${d.lat.toFixed(4)}, ${d.lon.toFixed(4)}</span>
-                        <span><i class="ph-bold ph-calendar"></i> ${d.registered_at || '--'}</span>
                         <span><i class="ph-bold ph-clock"></i> ${d.last_gps_time || 'Never'}</span>
+                        <span><i class="ph-bold ph-cpu"></i> FW: ${d.firmware_version || '1.0.0'}</span>
+                        <span><i class="ph-bold ph-wifi-high"></i> ${d.ip_address || 'Offline'}</span>
                     </div>
                 </div>
                 <div class="device-actions">
+                    <button class="btn btn-warning btn-sm" onclick="flashBuoy('${d.id}')" title="Test OTA Update"><i class="ph-bold ph-download-simple"></i> OTA Update</button>
                     ${d.is_bound === 0 
                         ? `<button class="btn btn-primary btn-sm" onclick="bindDevice('${d.id}')" title="Bind Device"><i class="ph-bold ph-link"></i> Bind</button>`
                         : `<button class="btn btn-warning btn-sm" onclick="unbindDevice('${d.id}')" title="Unbind Device"><i class="ph-bold ph-link-break"></i></button>`
@@ -146,8 +154,8 @@ async function loadDevicesList() {
                     <button class="btn btn-outline btn-sm" onclick="locateDevice('${d.id}')" title="Locate on map"><i class="ph-bold ph-map-pin"></i></button>
                     <button class="btn btn-danger btn-sm" onclick="deleteDevice('${d.id}')" title="Delete"><i class="ph-bold ph-trash"></i></button>
                 </div>
-            </div>
-        `).join('');
+            </div>`;
+        }).join('');
     } catch (e) {
         console.error('Failed to load devices:', e);
     }
@@ -180,6 +188,23 @@ async function unbindDevice(id) {
         }
     } catch (e) {
         showToast('Error unbinding device', 'error');
+    }
+}
+
+async function flashBuoy(id) {
+    if (!confirm(`Are you sure you want to update the firmware for Buoy ${id} over WiFi? Ensure the buoy is connected to the same WiFi network.`)) return;
+    showToast('Flashing firmware over WiFi... Do not turn off buoy!', 'warning');
+    
+    try {
+        const res = await fetchJSON(`/api/devices/${id}/ota-update`, { method: 'POST' });
+        if (res.success) {
+            showToast(res.message, 'success');
+            setTimeout(loadDevicesList, 5000); // Wait for reboot
+        } else {
+            showToast(res.error || 'Firmware flash failed', 'error');
+        }
+    } catch (e) {
+        showToast('Error flashing device', 'error');
     }
 }
 

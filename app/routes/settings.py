@@ -61,6 +61,45 @@ def update_settings():
     conn.close()
     return jsonify({'success': True, 'message': 'Settings saved'})
 
+# ── API: Save Global WiFi Credentials ──
+@settings_bp.route('/api/settings/wifi', methods=['GET', 'POST'])
+def save_wifi():
+    import os
+    import json
+    from app.database import DATABASE_PATH
+    wifi_path = os.path.join(os.path.dirname(DATABASE_PATH), 'wifi_settings.json')
+    
+    if request.method == 'GET':
+        if os.path.exists(wifi_path):
+            try:
+                with open(wifi_path, 'r') as f:
+                    wcfg = json.load(f)
+                    return jsonify({'success': True, 'ssid': wcfg.get('ssid', ''), 'password': wcfg.get('password', '')})
+            except:
+                pass
+        return jsonify({'success': True, 'ssid': '', 'password': ''})
+        
+    # POST request
+    data = request.json
+    ssid = data.get('ssid')
+    password = data.get('password')
+    
+    if not ssid:
+        return jsonify({'success': False, 'error': 'SSID is required'})
+        
+    from app.services.serial_service import serial_manager
+    
+    try:
+        with open(wifi_path, 'w') as f:
+            json.dump({'ssid': ssid, 'password': password}, f)
+            
+        # Broadcast to all bound buoys
+        serial_manager.broadcast_wifi(ssid, password)
+            
+        return jsonify({'success': True, 'message': 'WiFi credentials saved and broadcasted to Buoys!'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
 
 # ── API: Export logs ──
 @settings_bp.route('/api/logs/export', methods=['GET'])

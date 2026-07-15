@@ -47,6 +47,15 @@
                 <input type="text" class="form-input" id="baud_rate" value="115200">
             </div>
         </div>
+        <div class="setting-row">
+            <div class="setting-label">
+                <div class="label-title">LED Blink Off Time (Seconds)</div>
+                <div class="label-desc">0 for Solid ON, max 5s. (Always ON for 1s)</div>
+            </div>
+            <div class="setting-control">
+                <input type="number" class="form-input" id="led_blink_off_time" min="0" max="5" value="0">
+            </div>
+        </div>
 
         <button class="btn btn-primary" onclick="saveSettings('device')">Save Changes</button>
     </div>
@@ -90,6 +99,33 @@
 
 
         <button class="btn btn-primary" onclick="saveSettings('map')">Save Changes</button>
+    </div>
+
+    <!-- WiFi & OTA Settings -->
+    <div class="settings-card">
+        <div class="card-title"><span class="icon"><i class="ph-bold ph-wifi-high"></i></span> Global Buoy WiFi & OTA</div>
+        <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 16px;">
+            Configure the WiFi credentials that Buoys will use to connect to the network for OTA updates. Saving these settings will broadcast them to all registered buoys via LoRa.
+        </p>
+        <div class="setting-row">
+            <div class="setting-label">
+                <div class="label-title">WiFi Network (SSID)</div>
+                <div class="label-desc">The name of the WiFi network</div>
+            </div>
+            <div class="setting-control">
+                <input type="text" class="form-input" id="wifi_ssid" placeholder="MyWiFiNetwork">
+            </div>
+        </div>
+        <div class="setting-row">
+            <div class="setting-label">
+                <div class="label-title">WiFi Password</div>
+                <div class="label-desc">The password for the WiFi network</div>
+            </div>
+            <div class="setting-control">
+                <input type="password" class="form-input" id="wifi_password" placeholder="••••••••">
+            </div>
+        </div>
+        <button class="btn btn-primary" onclick="saveWifiSettings()">Save & Broadcast WiFi</button>
     </div>
 
     <!-- Alert Settings -->

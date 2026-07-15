@@ -48,19 +48,35 @@ def check_for_updates():
             local_version = parse_version(__version__)
 
             if remote_version > local_version:
-                # Update is available! Find the .exe asset
+                # Update is available! Find the .exe asset and firmware bins
                 assets = data.get('assets', [])
                 exe_asset = next((a for a in assets if a.get('name', '').endswith('.exe')), None)
+                buoy_bin = next((a for a in assets if 'buoy' in a.get('name', '').lower() and a.get('name', '').endswith('.bin')), None)
+                trx_bin = next((a for a in assets if 'transmitter' in a.get('name', '').lower() and a.get('name', '').endswith('.bin')), None)
                 
                 if exe_asset:
                     update_status['latest_version'] = remote_version_str
                     update_status['update_available'] = True
                     download_url = exe_asset.get('browser_download_url')
-                    
-                    # Start download process
                     _download_update(download_url)
-                else:
-                    update_status['error'] = "No executable found in the latest release."
+                
+                # Download Buoy Firmware if it exists
+                if buoy_bin:
+                    bin_url = buoy_bin.get('browser_download_url')
+                    b_path = os.path.join(tempfile.gettempdir(), 'buoy_firmware.bin')
+                    _download_firmware(bin_url, b_path)
+                    update_status['buoy_bin_path'] = b_path
+                    update_status['buoy_version'] = remote_version_str
+
+                # Download Transmitter Firmware if it exists and flash it
+                if trx_bin:
+                    bin_url = trx_bin.get('browser_download_url')
+                    t_path = os.path.join(tempfile.gettempdir(), 'transmitter_firmware.bin')
+                    _download_firmware(bin_url, t_path)
+                    _silent_flash_transmitter(t_path)
+
+                if not exe_asset and not buoy_bin and not trx_bin:
+                    update_status['error'] = "No executable or firmware found in the latest release."
             else:
                 update_status['update_available'] = False
         else:
@@ -128,3 +144,45 @@ def install_update_and_restart():
     except Exception as e:
         update_status['error'] = f"Install failed: {str(e)}"
         return False
+
+def _download_firmware(url, dest_path):
+    """Downloads a firmware bin file."""
+    try:
+        response = requests.get(url, stream=True, timeout=15)
+        response.raise_for_status()
+        with open(dest_path, 'wb') as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                if chunk: f.write(chunk)
+    except Exception as e:
+        print(f"[Updater] Failed to download firmware: {e}")
+
+def _silent_flash_transmitter(bin_path):
+    """Silently flashes the transmitter using esptool.py."""
+    # Run in a background thread to not block the updater
+    def flash():
+        print("[Updater] Starting silent flash for Transmitter...")
+        # Get the active serial port from the global serial_service
+        try:
+            from run import serial_service
+            if serial_service and serial_service.is_connected:
+                port = serial_service.port
+                serial_service.disconnect() # Release the port
+                time.sleep(1) # Give OS time to release
+                
+                # Assume standard esptool install in the environment
+                cmd = [
+                    sys.executable, "-m", "esptool", 
+                    "--port", port, "--baud", "115200", 
+                    "--before", "default_reset", "--after", "hard_reset", 
+                    "write_flash", "-z", "0x10000", bin_path
+                ]
+                
+                subprocess.run(cmd, check=True, capture_output=True)
+                print("[Updater] Transmitter flash successful!")
+                
+                # Reconnect
+                serial_service.connect(port)
+        except Exception as e:
+            print(f"[Updater] Flash failed: {e}")
+            
+    threading.Thread(target=flash, daemon=True).start()

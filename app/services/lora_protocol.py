@@ -81,14 +81,9 @@ class LoRaProtocol:
         return f"<{trx_id},{buoy_id}>,AT+CGPSINFO\n"
 
     @staticmethod
-    def build_led_on(trx_id: str, buoy_id: str, r: int = 255, g: int = 255, b: int = 255) -> str:
-        """Build an AT+LED=R,G,B command to turn on the LED."""
-        return f"<{trx_id},{buoy_id}>,AT+LED={r},{g},{b}\n"
-
-    @staticmethod
-    def build_led_off(trx_id: str, buoy_id: str) -> str:
-        """Build an AT+LED=0 command to turn off the LED."""
-        return f"<{trx_id},{buoy_id}>,AT+LED=0\n"
+    def build_led(trx_id: str, buoy_id: str, r: int, g: int, b: int, off_time: int, state: int) -> str:
+        """Build an AT+LED=R,G,B,OFF_TIME,STATE command."""
+        return f"<{trx_id},{buoy_id}>,AT+LED={r},{g},{b},{off_time},{state}\n"
 
     @staticmethod
     def build_get_battery(trx_id: str, buoy_id: str) -> str:

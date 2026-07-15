@@ -150,6 +150,11 @@ void AT_app(void *pvParameters)
                     handle_LED_AT_CMD(&AT_cmdInfo);
                     break;
                 }
+                case AT_CAT_SETWIFI:
+                {
+                    handle_SETWIFI_AT_CMD(&AT_cmdInfo);
+                    break;
+                }
                 default:
                 {
                     break;

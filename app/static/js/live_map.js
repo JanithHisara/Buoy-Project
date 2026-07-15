@@ -120,10 +120,9 @@ function renderBuoyList(devices) {
                     <div class="buoy-coords">${d.lat.toFixed(6)}, ${d.lon.toFixed(6)}</div>
                 </div>
                 <div class="buoy-actions">
-                    <label id="led-btn-${d.id}" class="btn btn-sm" title="Set LED Color" style="position:relative; overflow:hidden; padding: 0; width: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; background-color: ${d.led_color || '#0000ff'}; color: white; border: 1px solid rgba(255,255,255,0.2); text-shadow: 0 0 3px rgba(0,0,0,0.5);">
+                    <button id="led-btn-${d.id}" class="btn btn-sm" onclick="event.stopPropagation(); toggleLEDMenu(event, '${d.id}', this)" title="LED Controls" style="width: 32px; padding: 0; display: flex; align-items: center; justify-content: center; background-color: ${d.led_color || '#0000ff'}; color: white; border: 1px solid rgba(255,255,255,0.2); text-shadow: 0 0 3px rgba(0,0,0,0.5);">
                         <i class="ph-bold ph-palette"></i>
-                        <input type="color" value="${d.led_color || '#0000ff'}" onchange="event.stopPropagation(); setLEDColor('${d.id}', this.value)" style="position:absolute; opacity:0; width:100%; height:100%; left:0; top:0; cursor:pointer;">
-                    </label>
+                    </button>
                     <button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); updateBuoyLocation('${d.id}')" title="Update location">
                         <i class="ph-bold ph-arrows-clockwise"></i>
                     </button>
@@ -423,11 +422,111 @@ async function toggleHistoryTrail(buoyId) {
     }
 }
 
-async function setLEDColor(buoyId, hexColor) {
+let activeLEDMenuBuoy = null;
+
+function createGlobalLEDMenu() {
+    if (document.getElementById('global-led-menu')) return;
+    
+    const menuHTML = `
+        <div id="global-led-menu" style="display:none; position:fixed; background: #1f2937; border: 1px solid #374151; padding: 12px; border-radius: 8px; z-index: 99999; width: 220px; box-shadow: 0 4px 20px rgba(0,0,0,0.6);" onclick="event.stopPropagation();">
+            <div style="margin-bottom: 12px; font-weight: bold; font-size: 12px; color: #d1d5db; display: flex; justify-content: space-between; align-items: center;">
+                <span>LED Controls</span>
+                <label style="display: flex; align-items: center; cursor: pointer; gap: 6px;">
+                    <span style="font-size: 10px; font-weight: normal; color: #9ca3af;">Power</span>
+                    <div style="position: relative; width: 32px; height: 18px;">
+                        <input type="checkbox" id="global-led-power" style="opacity: 0; width: 0; height: 0; position: absolute;" checked>
+                        <span style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #4b5563; transition: .4s; border-radius: 18px;" class="slider round"></span>
+                        <style>
+                            #global-led-power:checked + .slider { background-color: #3b82f6; }
+                            .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 2px; bottom: 2px; background-color: white; transition: .4s; border-radius: 50%; }
+                            #global-led-power:checked + .slider:before { transform: translateX(14px); }
+                        </style>
+                    </div>
+                </label>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                <label style="font-size: 11px; color: #9ca3af; width: 60px;">Color:</label>
+                <input type="color" id="global-led-color" value="#0000ff" style="width: 100%; height: 28px; cursor: pointer; border: none; padding: 0; background: transparent;">
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px;">
+                <div style="display: flex; justify-content: space-between;">
+                    <label style="font-size: 11px; color: #9ca3af;">Blink Off Time:</label>
+                    <span id="global-led-time-val" style="font-size: 11px; color: #fff;">0s</span>
+                </div>
+                <input type="range" id="global-led-time" min="0" max="5" value="0" step="1" oninput="document.getElementById('global-led-time-val').innerText = this.value + 's';" style="width: 100%;">
+            </div>
+            <button class="btn btn-primary btn-sm" style="width: 100%;" onclick="applyLEDMenu()">Apply</button>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', menuHTML);
+}
+
+function toggleLEDMenu(event, buoyId, btnElement) {
+    createGlobalLEDMenu();
+    const menu = document.getElementById('global-led-menu');
+    
+    // If clicking the same button and menu is open, close it
+    if (activeLEDMenuBuoy === buoyId && menu.style.display === 'block') {
+        menu.style.display = 'none';
+        return;
+    }
+    
+    activeLEDMenuBuoy = buoyId;
+    const device = allDevices.find(d => d.id === buoyId);
+    if (device) {
+        document.getElementById('global-led-color').value = device.led_color || '#0000ff';
+        document.getElementById('global-led-power').checked = (device.led_is_on !== 0 && device.led_is_on !== false);
+    }
+    
+    const rect = btnElement.getBoundingClientRect();
+    
+    // Position menu below the button
+    menu.style.top = (rect.bottom + 8) + 'px';
+    
+    // Align center horizontally relative to button
+    menu.style.left = (rect.left + (rect.width / 2)) + 'px';
+    menu.style.transform = 'translateX(-50%)';
+    
+    menu.style.display = 'block';
+    
+    // Check if it goes off bottom of screen
+    setTimeout(() => {
+        const menuRect = menu.getBoundingClientRect();
+        if (menuRect.bottom > window.innerHeight) {
+            menu.style.top = (rect.top - menuRect.height - 8) + 'px'; // flip above if too low
+        }
+    }, 0);
+}
+
+function applyLEDMenu() {
+    if (!activeLEDMenuBuoy) return;
+    const colorInput = document.getElementById('global-led-color');
+    const timeInput = document.getElementById('global-led-time');
+    const powerInput = document.getElementById('global-led-power');
+    
+    if (colorInput && timeInput && powerInput) {
+        setLEDColor(activeLEDMenuBuoy, colorInput.value, timeInput.value, powerInput.checked);
+    }
+    
+    document.getElementById('global-led-menu').style.display = 'none';
+}
+
+// Close dropdowns if clicked outside
+document.addEventListener('click', () => {
+    const menu = document.getElementById('global-led-menu');
+    if (menu) menu.style.display = 'none';
+});
+
+async function setLEDColor(buoyId, hexColor, offTime, isOn = true) {
     try {
+        const payload = { color: hexColor, is_on: isOn };
+        if (offTime !== undefined && offTime !== null) {
+            payload.off_time = parseInt(offTime) * 1000;
+        }
+
         const res = await fetchJSON(`/api/devices/${buoyId}/led`, {
             method: 'POST',
-            body: JSON.stringify({ color: hexColor })
+            body: JSON.stringify(payload)
         });
         
         if (res.success) {

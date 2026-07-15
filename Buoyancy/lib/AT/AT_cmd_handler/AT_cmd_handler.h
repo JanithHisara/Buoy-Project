@@ -18,5 +18,6 @@ void handle_CGPS_AT_CMD(const AT_CommandInfo *cmd);
 void handle_CGPSINFO_AT_CMD(const AT_CommandInfo *cmd);
 void handle_LED_AT_CMD(const AT_CommandInfo *cmd);
 void handle_BSOC_AT_CMD(const AT_CommandInfo *cmd);
+void handle_SETWIFI_AT_CMD(const AT_CommandInfo *cmd);
 
 #endif

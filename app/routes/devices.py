@@ -227,6 +227,8 @@ def get_history(device_id):
 def set_led(device_id):
     color_hex = request.json.get('color', '#0000ff') # default blue
     color_hex = color_hex.lstrip('#')
+    off_time = request.json.get('off_time', None)
+    is_on = request.json.get('is_on', True) # Default to True
     
     try:
         r = int(color_hex[0:2], 16)
@@ -235,15 +237,16 @@ def set_led(device_id):
     except:
         r, g, b = 0, 0, 255
         
-    success, msg = serial_manager.set_led(device_id.strip().upper(), r, g, b)
+    success, msg = serial_manager.set_led(device_id.strip().upper(), r, g, b, off_time, is_on)
     
     if success:
         conn = get_db()
-        conn.execute("UPDATE devices SET led_color = ? WHERE id = ?", (f'#{color_hex}', device_id.strip().upper()))
+        is_on_int = 1 if is_on else 0
+        conn.execute("UPDATE devices SET led_color = ?, led_is_on = ? WHERE id = ?", (f'#{color_hex}', is_on_int, device_id.strip().upper()))
         conn.commit()
         conn.close()
         
-    return jsonify({'success': success, 'message': msg, 'color': f'#{color_hex}'})
+    return jsonify({'success': success, 'message': msg, 'color': f'#{color_hex}', 'is_on': is_on})
 
 # ── API: Toggle GPS Power ──
 @devices_bp.route('/api/devices/<device_id>/gps-power', methods=['POST'])
@@ -295,3 +298,48 @@ def get_stats():
         'signal_lost': lost,
         'warning_buoys': warning
     })
+
+
+# ── API: OTA Flash Buoy via WiFi ──
+@devices_bp.route('/api/devices/<device_id>/ota-update', methods=['POST'])
+def flash_buoy_ota(device_id):
+    device_id = device_id.strip().upper()
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT ip_address FROM devices WHERE id=?", (device_id,))
+    row = cursor.fetchone()
+    conn.close()
+
+    if not row or not row['ip_address'] or row['ip_address'] == '0.0.0.0':
+        # Fallback to mDNS hostname
+        ip_address = f"oceanbuoy-{device_id}.local"
+        print(f"[OTA] IP not in database. Falling back to mDNS: {ip_address}")
+    else:
+        ip_address = row['ip_address']
+    
+    import os
+    import tempfile
+    import requests
+    
+    bin_path = os.path.join(tempfile.gettempdir(), 'buoy_firmware.bin')
+    if not os.path.exists(bin_path):
+        # Fallback to local PlatformIO build for testing
+        local_build_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'Buoyancy', '.pio', 'build', 'esp32dev', 'firmware.bin'))
+        if os.path.exists(local_build_path):
+            bin_path = local_build_path
+            print(f"[OTA] Using local firmware build for testing: {bin_path}")
+        else:
+            return jsonify({'success': False, 'error': 'Firmware update not downloaded yet, and no local build found.'})
+        
+    try:
+        url = f"http://{ip_address}/update"
+        with open(bin_path, 'rb') as f:
+            files = {'update': f}
+            response = requests.post(url, files=files, timeout=30)
+            
+        if response.status_code == 200 and "OK" in response.text:
+            return jsonify({'success': True, 'message': 'Firmware flashed successfully! Buoy is rebooting.'})
+        else:
+            return jsonify({'success': False, 'error': f'Flash failed: {response.text}'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'Could not reach Buoy over WiFi: {str(e)}'})

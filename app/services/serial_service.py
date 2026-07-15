@@ -192,6 +192,7 @@ class SerialManager:
         threading.Thread(target=do_scan, daemon=True).start()
         return True, "Bound Scan started"
 
+
     def request_gps(self, buoy_id):
         """Request GPS info from a specific buoy."""
         if not self.is_connected:
@@ -312,11 +313,35 @@ class SerialManager:
 
             # Wait for response up to 5 seconds
             start = time.time()
+            success = False
             while time.time() - start < 5.0:
                 with self.data_lock:
                     if buoy_id in self.device_responded:
-                        return True, "Device responded successfully"
+                        success = True
+                        break
                 time.sleep(0.1)
+
+            if success and bind:
+                # Auto-push WiFi credentials after a successful bind
+                def push_wifi():
+                    time.sleep(2.0) # wait for Buoy to settle
+                    import json
+                    import os
+                    wifi_file = os.path.join(os.path.dirname(__file__), '..', '..', 'wifi_settings.json')
+                    if os.path.exists(wifi_file):
+                        try:
+                            with open(wifi_file, 'r') as f:
+                                settings = json.load(f)
+                            if settings.get('ssid') and settings.get('password'):
+                                wifi_cmd = f"<{self.trx_id},{buoy_id}>,AT+SETWIFI={settings['ssid']},{settings['password']}\n"
+                                self.send(wifi_cmd)
+                                print(f"[OTA] Auto-pushed WiFi to newly bound buoy {buoy_id}")
+                        except Exception as e:
+                            print(f"Error auto-pushing WiFi: {e}")
+                threading.Thread(target=push_wifi, daemon=True).start()
+                return True, "Device responded successfully. Pushing WiFi configuration."
+            elif success:
+                return True, "Device responded successfully"
 
             return False, "Buoyancy did not respond (out of range or off)"
 
@@ -600,13 +625,29 @@ class SerialManager:
             time.sleep(0.3)
         return False, "Timeout waiting for live location"
 
-    def set_led(self, buoy_id, r, g, b):
-        """Set LED color of a buoy."""
+    def set_led(self, buoy_id, r, g, b, off_time_ms=None, is_on=True):
+        """Set LED color of a buoy with blink logic and ON/OFF state."""
         if not self.is_connected or not self.trx_id:
             return False, "Gateway not connected"
 
+        import sqlite3
+        from app.config import DATABASE_PATH
+        
+        if off_time_ms is None:
+            off_time_ms = 0
+            try:
+                conn = sqlite3.connect(DATABASE_PATH)
+                row = conn.execute("SELECT value FROM settings WHERE key='led_blink_off_time'").fetchone()
+                if row and row[0]:
+                    off_time_ms = int(float(row[0]) * 1000)
+                conn.close()
+            except Exception as e:
+                print(f"[Serial] Error reading led_blink_off_time: {e}")
+
+        state_val = 1 if is_on else 0
+
         with self.update_lock:
-            cmd = LoRaProtocol.build_led_on(self.trx_id, buoy_id, r, g, b)
+            cmd = LoRaProtocol.build_led(self.trx_id, buoy_id, r, g, b, off_time_ms, state_val)
             self.send(cmd)
             return True, "LED color command sent"
 
@@ -637,6 +678,26 @@ class SerialManager:
                 'gps_points': len(self.gps_data)
             }
 
+    def broadcast_wifi(self, ssid, password):
+        """Send AT+SETWIFI command to all bound buoys."""
+        if not self.is_connected or not self.trx_id: return
+        import sqlite3
+        from app.database import DATABASE_PATH
+        conn = sqlite3.connect(DATABASE_PATH)
+        conn.row_factory = sqlite3.Row
+        buoys = conn.execute("SELECT id FROM devices WHERE is_bound = 1").fetchall()
+        conn.close()
+
+        def do_broadcast():
+            for buoy in buoys:
+                bid = buoy['id']
+                # Must include the comma! <TRX,BUOY>,AT+SETWIFI=SSID,PASS
+                cmd = f"<{self.trx_id},{bid}>,AT+SETWIFI={ssid},{password}\n"
+                self.send(cmd)
+                time.sleep(1.0)
+            print("[OTA] Broadcast WiFi update complete.")
+
+        threading.Thread(target=do_broadcast, daemon=True).start()
 
 # Global singleton
 serial_manager = SerialManager()

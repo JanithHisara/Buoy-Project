@@ -46,4 +46,5 @@ DEFAULT_SETTINGS = {
     'two_factor_auth': 'false',
     'session_timeout': '300',
     'api_access_logs': 'true',
+    'led_blink_off_time': '0',
 }

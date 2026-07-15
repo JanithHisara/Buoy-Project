@@ -1,4 +1,5 @@
 #include "AT_cmd_handler.h"
+#include <Preferences.h>
 
 /*void handle_CMD_template(const AT_CommandInfo *cmd)
 {
@@ -278,6 +279,30 @@ void handle_SCAN_AT_CMD(const AT_CommandInfo *cmd, buoyancy_bind_state_t current
     }
 }
 
+void handle_SETWIFI_AT_CMD(const AT_CommandInfo *cmd)
+{
+    if (cmd->AT_type == AT_CMD_TYPE_WRITE)
+    {
+        if (cmd->param_count >= 2)
+        {
+            saveString("WIFI_SSID", cmd->params[0]);
+            saveString("WIFI_PASS", cmd->params[1]);
+            
+            sprintf(AT_handler_TX_msg, "\r\n<%s,%s>\r\n+SETWIFI:OK\r\nOK\r\n", cmd->UserID, cmd->BuoyancyID);
+            xQueueSend(AT_to_LoRa_Queue, AT_handler_TX_msg, 0);
+            
+            // Wait a moment for LoRa to send, then restart to apply WiFi settings
+            delay(1000);
+            ESP.restart();
+        }
+        else
+        {
+            sprintf(AT_handler_TX_msg, "\r\n<%s,%s>\r\n+SETWIFI:ERROR\r\nERROR\r\n", cmd->UserID, cmd->BuoyancyID);
+            xQueueSend(AT_to_LoRa_Queue, AT_handler_TX_msg, 0);
+        }
+    }
+}
+
 void handle_CGPS_AT_CMD(const AT_CommandInfo *cmd)
 {
     switch (cmd->AT_type)
@@ -465,7 +490,7 @@ void handle_LED_AT_CMD(const AT_CommandInfo *cmd)
     }
     case AT_CMD_TYPE_WRITE:
     {
-        if (cmd->param_count == 3) // AT+LED=R,G,B
+        if (cmd->param_count >= 3 && cmd->param_count <= 5) // AT+LED=R,G,B[,OffTime[,State]]
         {
             strncpy(led_r_str, cmd->params[0], sizeof(led_r_str)-1);
             strncpy(led_g_str, cmd->params[1], sizeof(led_g_str)-1);
@@ -474,12 +499,50 @@ void handle_LED_AT_CMD(const AT_CommandInfo *cmd)
             extern uint8_t led_r_val;
             extern uint8_t led_g_val;
             extern uint8_t led_b_val;
+            extern uint16_t led_off_time;
+            extern uint8_t led_is_on;
 
             led_r_val = atoi(led_r_str);
             led_g_val = atoi(led_g_str);
             led_b_val = atoi(led_b_str);
+            
+            if (cmd->param_count >= 4) {
+                led_off_time = atoi(cmd->params[3]);
+            } else {
+                led_off_time = 0; // Default to solid on
+            }
+            
+            if (cmd->param_count == 5) {
+                led_is_on = atoi(cmd->params[4]);
+            } else {
+                led_is_on = 1; // Default to ON
+            }
 
-            snprintf(AT_handler_TX_msg, sizeof(AT_handler_TX_msg), "\r\n<%s,%s>\r\n+LED:1,%s,%s,%s\r\nOK\r\n", cmd->UserID, cmd->BuoyancyID, led_r_str, led_g_str, led_b_str);
+            // Save to NVS
+            Preferences prefs;
+            prefs.begin("led_cfg", false);
+            prefs.putUChar("r", led_r_val);
+            prefs.putUChar("g", led_g_val);
+            prefs.putUChar("b", led_b_val);
+            prefs.putUShort("off_time", led_off_time);
+            prefs.putUChar("is_on", led_is_on);
+            prefs.end();
+
+            snprintf(AT_handler_TX_msg, sizeof(AT_handler_TX_msg), "\r\n<%s,%s>\r\n+LED:1,%s,%s,%s,%d,%d\r\nOK\r\n", cmd->UserID, cmd->BuoyancyID, led_r_str, led_g_str, led_b_str, led_off_time, led_is_on);
+            xQueueSend(AT_to_LoRa_Queue, AT_handler_TX_msg, 0);
+        }
+        else if (cmd->param_count == 1 && atoi(cmd->params[0]) == 0)
+        {
+            // Fallback for AT+LED=0 (off)
+            extern uint8_t led_is_on;
+            led_is_on = 0;
+            
+            Preferences prefs;
+            prefs.begin("led_cfg", false);
+            prefs.putUChar("is_on", led_is_on);
+            prefs.end();
+            
+            snprintf(AT_handler_TX_msg, sizeof(AT_handler_TX_msg), "\r\n<%s,%s>\r\n+LED:0\r\nOK\r\n", cmd->UserID, cmd->BuoyancyID);
             xQueueSend(AT_to_LoRa_Queue, AT_handler_TX_msg, 0);
         }
         else

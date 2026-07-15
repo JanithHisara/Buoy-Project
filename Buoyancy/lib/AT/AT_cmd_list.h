@@ -2,7 +2,7 @@
 #define AT_CMD_LIST_H
 
 #define MAX_WRITE_PARAMS 10
-#define MAX_WRITE_PARAM_LEN 8
+#define MAX_WRITE_PARAM_LEN 64
 
 typedef enum{
     BOUND=0,
@@ -29,7 +29,8 @@ typedef enum
     AT_CAT_BSOC,
     AT_CAT_CGPS,
     AT_CAT_CGPSINFO,
-    AT_CAT_LED
+    AT_CAT_LED,
+    AT_CAT_SETWIFI
 
 } AT_CommandCategory;
 
@@ -56,7 +57,8 @@ static const AT_CommandMap AT_CMD_CAT_LIST[] = {
     {"BSOC", AT_CAT_BSOC},
     {"CGPS", AT_CAT_CGPS},
     {"CGPSINFO", AT_CAT_CGPSINFO},
-    {"LED", AT_CAT_LED}
+    {"LED", AT_CAT_LED},
+    {"SETWIFI", AT_CAT_SETWIFI}
 };
 
 #endif

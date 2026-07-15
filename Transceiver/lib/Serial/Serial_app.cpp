@@ -13,9 +13,22 @@ void Serial_app(void *pvParameters)
     {
       size_t len = Serial.readBytesUntil('\n', serial_TX_Buf, sizeof(serial_TX_Buf) - 1);
       serial_TX_Buf[len] = '\0'; // Null-terminate the string
-      xQueueSend(Serial_to_LoRa_Queue, serial_TX_Buf, 0);
-      Serial.print("Reveived via Serial : ");
-      Serial.println(serial_TX_Buf);
+
+      // Strip carriage return if present
+      if (len > 0 && serial_TX_Buf[len - 1] == '\r') {
+          serial_TX_Buf[len - 1] = '\0';
+      }
+
+      if (strcmp(serial_TX_Buf, "AT+VER?") == 0)
+      {
+          Serial.println("+VER:1.0.0"); // Hardcoded version for Transceiver
+      }
+      else
+      {
+          xQueueSend(Serial_to_LoRa_Queue, serial_TX_Buf, 0);
+          Serial.print("Reveived via Serial : ");
+          Serial.println(serial_TX_Buf);
+      }
     }
 
     if (xQueueReceive(LoRa_to_Serial_Queue, serial_RX_Buf, 0) == pdTRUE)
