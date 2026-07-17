@@ -148,6 +148,12 @@ void setup()
     xTimerStart(HourlySaveTimer, 0);
   }
 
+  // Trigger an immediate GPS search on startup so we don't have to wait 1 hour for the first location
+  if (GPS_Background_Lock_Semaphore != NULL)
+  {
+    xSemaphoreGive(GPS_Background_Lock_Semaphore);
+  }
+
   xTaskCreatePinnedToCore(LoRa_app, "LoRa_app", 4096, NULL, 1, &LoRaAppHandle, 1);
   xTaskCreatePinnedToCore(AT_app, "AT_app", 4096, NULL, 1, &LoRaAppHandle, 1);
   xTaskCreatePinnedToCore(GPS_app, "GPS_app", 4096, NULL, 1, &GPSAppHandle, 1);

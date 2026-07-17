@@ -54,7 +54,7 @@ void GPS_app(void *pvParameters)
                 digitalWrite(32, LOW);
                 Serial.println("ESP32 SLEEP - GPS OFF (Lora Listening)");
             }
-            else if (millis() - search_start_time > 300000) { // 5 minutes timeout
+            else if (millis() - search_start_time > 900000) { // 15 minutes timeout
                 Serial.println("Background GPS Search Timeout.");
                 is_background_searching = false;
                 
