@@ -188,23 +188,63 @@ void saveGPSHistory(const void *buffer, size_t size)
         Serial.println("Failed to open preferences for writing GPS History");
         return;
     }
-    preferences.putBytes("GPS_HIST", buffer, size);
+    
+    const uint8_t *ptr = (const uint8_t *)buffer;
+    size_t remaining = size;
+    int chunk_idx = 0;
+    while(remaining > 0) {
+        size_t chunk_size = remaining > 500 ? 500 : remaining;
+        char key[15];
+        sprintf(key, "GPS_HIST_%d", chunk_idx);
+        preferences.putBytes(key, ptr, chunk_size);
+        ptr += chunk_size;
+        remaining -= chunk_size;
+        chunk_idx++;
+    }
     preferences.end();
-    Serial.println("GPS History saved to NVS");
+    Serial.println("GPS History chunked and saved to NVS");
 }
 
 void loadGPSHistory(void *buffer, size_t size)
 {
+    memset(buffer, 0, size);
     if (!preferences.begin(NAMESPACE, true))
     {
         Serial.println("Failed to open preferences for reading GPS History");
-        memset(buffer, 0, size);
         return;
     }
-    size_t len = preferences.getBytes("GPS_HIST", buffer, size);
-    preferences.end();
     
-    if (len == 0) {
-        memset(buffer, 0, size);
+    uint8_t *ptr = (uint8_t *)buffer;
+    size_t remaining = size;
+    int chunk_idx = 0;
+    
+    // Check if chunk 0 exists to see if we have valid saved data
+    char key0[15];
+    sprintf(key0, "GPS_HIST_0");
+    if (preferences.getBytesLength(key0) == 0) {
+        preferences.end();
+        return; // Empty history
     }
+
+    while(remaining > 0) {
+        size_t chunk_size = remaining > 500 ? 500 : remaining;
+        char key[15];
+        sprintf(key, "GPS_HIST_%d", chunk_idx);
+        size_t len = preferences.getBytesLength(key);
+        
+        if (len == chunk_size) {
+            preferences.getBytes(key, ptr, chunk_size);
+        } else {
+            // Mismatch or corrupted chunk -> Discard everything
+            Serial.println("GPS History size mismatch! Discarding old history.");
+            memset(buffer, 0, size);
+            break;
+        }
+        
+        ptr += chunk_size;
+        remaining -= chunk_size;
+        chunk_idx++;
+    }
+    
+    preferences.end();
 }

@@ -509,8 +509,9 @@ class SerialManager:
                                     status_str = 'online'
                                     is_cached_int = 0
                                 
-                                local_dt = gps_dt_utc.astimezone()
-                                last_gps_time_str = local_dt.strftime("%Y-%m-%d %H:%M:%S")
+                                sl_tz = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
+                                local_dt = gps_dt_utc.astimezone(sl_tz)
+                                last_gps_time_str = local_dt.strftime("%Y-%m-%d %I:%M:%S %p")
                             except Exception:
                                 pass
                         elif gps.is_cached:
@@ -529,16 +530,20 @@ class SerialManager:
                                 (gps.latitude, gps.longitude, status_str, last_gps_time_str, is_cached_int, bid)
                             )
                         else:
+                            import datetime
+                            sl_tz = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
+                            now_sl_str = datetime.datetime.now(sl_tz).strftime("%Y-%m-%d %I:%M:%S %p")
+                            
                             cursor.execute(
-                                'INSERT INTO gps_logs (device_id, lat, lon, source, timestamp) VALUES (?,?,?,?, datetime("now", "localtime"))',
-                                (bid, gps.latitude, gps.longitude, source)
+                                'INSERT INTO gps_logs (device_id, lat, lon, source, timestamp) VALUES (?,?,?,?,?)',
+                                (bid, gps.latitude, gps.longitude, source, now_sl_str)
                             )
                             cursor.execute(
                                 '''UPDATE devices SET lat=?, lon=?, status=?,
-                                   gps_status='locked', last_gps_time=datetime('now', 'localtime'),
+                                   gps_status='locked', last_gps_time=?,
                                    is_cached=?
                                    WHERE id=?''',
-                                (gps.latitude, gps.longitude, status_str, is_cached_int, bid)
+                                (gps.latitude, gps.longitude, status_str, now_sl_str, is_cached_int, bid)
                             )
                         conn.commit()
                         conn.close()

@@ -79,8 +79,11 @@ def update_device(device_id):
     name = data.get('name')
 
     if lat is not None and lon is not None:
-        cursor.execute('UPDATE devices SET lat=?, lon=?, last_gps_time=datetime("now") WHERE id=?',
-                        (lat, lon, device_id))
+        import datetime
+        sl_tz = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
+        now_sl_str = datetime.datetime.now(sl_tz).strftime("%Y-%m-%d %I:%M:%S %p")
+        cursor.execute('UPDATE devices SET lat=?, lon=?, last_gps_time=? WHERE id=?',
+                        (lat, lon, now_sl_str, device_id))
     if name is not None:
         cursor.execute('UPDATE devices SET name=? WHERE id=?', (name, device_id))
 
@@ -334,8 +337,10 @@ def flash_buoy_ota(device_id):
     try:
         url = f"http://{ip_address}/update"
         with open(bin_path, 'rb') as f:
-            files = {'update': f}
-            response = requests.post(url, files=files, timeout=30)
+            file_data = f.read()
+            
+        files = {'update': ('firmware.bin', file_data, 'application/octet-stream')}
+        response = requests.post(url, files=files, timeout=30)
             
         if response.status_code == 200 and "OK" in response.text:
             return jsonify({'success': True, 'message': 'Firmware flashed successfully! Buoy is rebooting.'})

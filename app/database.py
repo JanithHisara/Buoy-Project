@@ -52,7 +52,7 @@ def init_db():
             active INTEGER DEFAULT 1,
             is_cached INTEGER DEFAULT 0,
             is_bound INTEGER DEFAULT 1,
-            led_color TEXT DEFAULT '#0000ff',
+            led_color TEXT DEFAULT '#ffffff',
             led_is_on INTEGER DEFAULT 1,
             sleep_mode TEXT DEFAULT 'Asleep'
         )

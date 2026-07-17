@@ -89,19 +89,16 @@ void vLEDBlinkTask(void *pvParameters)
 
 void LED_app_init(void)
 {
-    Preferences prefs;
-    prefs.begin("led_cfg", true); // true = read-only mode
-    led_r_val = prefs.getUChar("r", 0);
-    led_g_val = prefs.getUChar("g", 0);
-    led_b_val = prefs.getUChar("b", 255);
-    led_off_time = prefs.getUShort("off_time", 0);
-    led_is_on = prefs.getUChar("is_on", 1);
-    prefs.end();
+    led_r_val = 255;
+    led_g_val = 255;
+    led_b_val = 255;
+    led_off_time = 0;
+    led_is_on = 1;
 
     xTaskCreatePinnedToCore(
         vLEDBlinkTask,
         "LED_Task",
-        2048,
+        4096,
         NULL,
         1,
         &LED_TaskHandle,

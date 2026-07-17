@@ -407,7 +407,7 @@ void handle_CGPSINFO_AT_CMD(const AT_CommandInfo *cmd)
     case AT_CMD_TYPE_EXECUTE:
     {
         // Immediately send history to Master from NVS
-        GPS_History_Data history;
+        GPS_History_Data history = {0};
         loadGPSHistory(&history, sizeof(history));
         
         if (history.count == 0) {
@@ -518,16 +518,6 @@ void handle_LED_AT_CMD(const AT_CommandInfo *cmd)
                 led_is_on = 1; // Default to ON
             }
 
-            // Save to NVS
-            Preferences prefs;
-            prefs.begin("led_cfg", false);
-            prefs.putUChar("r", led_r_val);
-            prefs.putUChar("g", led_g_val);
-            prefs.putUChar("b", led_b_val);
-            prefs.putUShort("off_time", led_off_time);
-            prefs.putUChar("is_on", led_is_on);
-            prefs.end();
-
             snprintf(AT_handler_TX_msg, sizeof(AT_handler_TX_msg), "\r\n<%s,%s>\r\n+LED:1,%s,%s,%s,%d,%d\r\nOK\r\n", cmd->UserID, cmd->BuoyancyID, led_r_str, led_g_str, led_b_str, led_off_time, led_is_on);
             xQueueSend(AT_to_LoRa_Queue, AT_handler_TX_msg, 0);
         }
@@ -537,12 +527,7 @@ void handle_LED_AT_CMD(const AT_CommandInfo *cmd)
             extern uint8_t led_is_on;
             led_is_on = 0;
             
-            Preferences prefs;
-            prefs.begin("led_cfg", false);
-            prefs.putUChar("is_on", led_is_on);
-            prefs.end();
-            
-            snprintf(AT_handler_TX_msg, sizeof(AT_handler_TX_msg), "\r\n<%s,%s>\r\n+LED:0\r\nOK\r\n", cmd->UserID, cmd->BuoyancyID);
+            snprintf(AT_handler_TX_msg, sizeof(AT_handler_TX_msg), "\r\n<%s,%s>\r\n+LED:1,0,0,0,0,0\r\nOK\r\n", cmd->UserID, cmd->BuoyancyID);
             xQueueSend(AT_to_LoRa_Queue, AT_handler_TX_msg, 0);
         }
         else

@@ -474,8 +474,10 @@ function toggleLEDMenu(event, buoyId, btnElement) {
     activeLEDMenuBuoy = buoyId;
     const device = allDevices.find(d => d.id === buoyId);
     if (device) {
-        document.getElementById('global-led-color').value = device.led_color || '#0000ff';
-        document.getElementById('global-led-power').checked = (device.led_is_on !== 0 && device.led_is_on !== false);
+        // Default to white if no color saved, or use saved color
+        document.getElementById('global-led-color').value = device.led_color || '#ffffff';
+        // Always default the power toggle to ON when opening the menu
+        document.getElementById('global-led-power').checked = true;
     }
     
     const rect = btnElement.getBoundingClientRect();

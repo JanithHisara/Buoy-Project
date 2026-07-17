@@ -47,6 +47,8 @@ void setupOTA() {
   });
   
   server.on("/update", HTTP_POST, []() {
+    Serial.println("Update endpoint hit! Upload callback finished.");
+    Serial.printf("Update has error: %d\n", Update.hasError());
     server.sendHeader("Connection", "close");
     server.send(200, "text/plain", (Update.hasError()) ? "FAIL" : "OK");
     ESP.restart();
